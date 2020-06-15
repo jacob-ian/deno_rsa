@@ -7,6 +7,7 @@
 
 // Import the module
 import { Rs256 } from "./mod.ts";
+import { readJson } from "https://deno.land/std@v0.57.0/fs/mod.ts";
 
 // Create a new Rs256 instance
 const rs256 = new Rs256();
@@ -14,9 +15,11 @@ const rs256 = new Rs256();
 // Create a message
 const msg = "hello";
 
-// Create a key
-const key =
-  "----- BEGIN PRIVATE KEY ----- alskdjadkljhalksjdhalkjh ----- END PRIVATE KEY -----";
+// Load the JSON Keyfile
+const json: any = await readJson("./keyfile.json");
+
+// Get the key
+const key = json.private_key;
 
 // Create a signature
 const signature = rs256.sign(key, msg);

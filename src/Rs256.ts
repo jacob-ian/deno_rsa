@@ -29,7 +29,7 @@ export class Rs256 {
    * @param key The RSA private key to sign the message with
    * @param message The message to be signed and converted into a signature
    */
-  public sign(key: string, message: string): string {
+  public sign(key: string, message: string | number[]): string {
     // Encode the message using the EMSA-PKCS1-v1_5 method
     const EM = this.emsaEncode(message);
 
@@ -65,7 +65,7 @@ export class Rs256 {
    * @param message The message to encode with EMSA-PKCS1-v1_5
    * @return the encoded message as an array of hex strings (octets)
    */
-  private emsaEncode(message: string): string[] {
+  private emsaEncode(message: string | number[]): string[] {
     // Create a hash of the message with SHA-256
     const hash: string = new Sha256().update(message).hex();
 
@@ -189,11 +189,13 @@ export class Rs256 {
 
   /**
    * Create a signature integer representative from the private key and the message integer representative.
-   * @param key the RSA private key
+   * @param key a valid RSA private key
    * @param message the intger message representative
    * @return a number denoting the integer representative of the signature
    */
   private rsasp1(key: string, message: number): number {
+    //
+
     // Return the integer signature
     // dev return
     return 2;
@@ -205,8 +207,11 @@ export class Rs256 {
    * @param sigLen the length of the signature in octets
    * @return an octet stream as a hex string containing the signature
    */
-  private i2osp(sigInt: number, sigLen: number): string {
+  private i2osp(sigInt: number, sigLen: number): string[] {
+    // Create an array to store the hex octets
+    var octets: string[] = [];
+
     // dev return
-    return "";
+    return octets;
   }
 }
