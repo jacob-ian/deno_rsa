@@ -6,17 +6,17 @@
  */
 
 // Import the module
-import { Rs256 } from './mod.ts';
+import { Rs256 } from "./mod.ts";
 
 // Create a new Rs256 instance
 const rs256 = new Rs256();
 
 // Create a message
-const msg = 'hello';
+const msg = "hello";
 
 // Create a key
 const key =
-  '----- BEGIN PRIVATE KEY ----- alskdjadkljhalksjdhalkjh ----- END PRIVATE KEY -----';
+  "----- BEGIN PRIVATE KEY ----- alskdjadkljhalksjdhalkjh ----- END PRIVATE KEY -----";
 
 // Create a signature
 const signature = rs256.sign(key, msg);
