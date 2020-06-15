@@ -3,7 +3,7 @@
  * have been obtained from Section 8.2.1 of RFC 8017 (https://tools.ietf.org/html/rfc8017#section-8.2.1).
  *
  * @author Jacob Ian Matthews
- * @version 1.0, 14/06/2020
+ * @version 1.0 14/06/2020
  */
 
 /* IMPORTS */
@@ -39,11 +39,9 @@ export class Rs256 {
     // Convert the encoded message into an integer message representative
     const m = this.os2ip(EM);
 
-    console.log(m);
-
     // Create a signature integer representative by applying the RSASP1 signature primitive
     // to the RSA private key and the integer message representative
-    //const s = this.rsasp1(key, m);
+    const s = this.rsasp1(key, m);
 
     // Convert the signature integer representative into an octet stream (hex string) signature
     //const signature = this.i2osp(s, k);
@@ -153,7 +151,7 @@ export class Rs256 {
   }
 
   /**
-   * Convert an octet stream (in hex string form) to non-negative integers
+   * Convert an octet stream (in hex string array form) to a non-negative integer representation
    * @param encodedMessage A hexadecimal string of octets containing the encoded message.
    * @return a number containng the integer representation of the encoded message
    */
@@ -161,7 +159,7 @@ export class Rs256 {
     // Create a new array of the corresponding decimal integers from the hex string
     var emInts: number[] = [];
 
-    // Loop through the EM array of hexidecimal values and parse them as decimal
+    // Loop through the EM array of hexidecimal octets and parse them as decimals
     encodedMessage.forEach((element) => {
       emInts.push(parseInt(element));
     });
