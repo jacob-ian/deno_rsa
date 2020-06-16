@@ -35,13 +35,12 @@ export class Rs256 {
 
     // Get the length of the encoded message (the length of the signature) in octets
     const k = EM.length;
-
     // Convert the encoded message into an integer message representative
     const m = this.os2ip(EM);
 
     // Create a signature integer representative by applying the RSASP1 signature primitive
     // to the RSA private key and the integer message representative
-    const s = this.rsasp1(key, m);
+    //const s = this.rsasp1(key, m);
 
     // Convert the signature integer representative into an octet stream (hex string) signature
     //const signature = this.i2osp(s, k);
@@ -155,33 +154,33 @@ export class Rs256 {
    * @param encodedMessage A hexadecimal string of octets containing the encoded message.
    * @return a number containng the integer representation of the encoded message
    */
-  private os2ip(encodedMessage: string[]): number {
+  private os2ip(encodedMessage: string[]): bigint {
     // Create a new array of the corresponding decimal integers from the hex string
     var emInts: number[] = [];
 
-    // Loop through the EM array of hexidecimal octets and parse them as decimals
+    // Loop through the EM array of hexidecimal octets and parse them as Uint8
     encodedMessage.forEach((element) => {
       emInts.push(parseInt(element));
     });
 
     // Loop through the new array of integers to find the EM's representing integer such that
-    // x = emInt[0] + emInt[1]*256^(1) + emInt[2]*256^(2) + ... emInt[emLen]*256^(emLen)
+    // x = sum(emInts[i]*256^(i)), 0 <= i < emInts.length
 
     // Create the output number
-    var x: number = 0;
+    var x: bigint = 0n;
 
     // Loop through the array of integers
-    var i = 0;
-    emInts.forEach((emInt) => {
+    var i: number;
+    for (i = 0; i < emInts.length; i++) {
+      // Get the current integer
+      const int = emInts[i];
+
       // Calculate the value for this integer
-      const value = emInt * (256 ^ i);
+      const value: bigint = BigInt(int * Math.pow(256, i));
 
       // Add it to the output integer
       x += value;
-
-      // Increment the i value
-      i++;
-    });
+    }
 
     // Return the integer representation of the encoded message
     return x;
@@ -202,16 +201,47 @@ export class Rs256 {
   }
 
   /**
-   * Convert an integer representative to an octet stream (hex string)
-   * @param sigInt the signature integer message representative
-   * @param sigLen the length of the signature in octets
-   * @return an octet stream as a hex string containing the signature
+   * Convert an integer representative to an octet string (Integer-to-Octet-Stream-Primitive)
+   * @param x the input's integer representative
+   * @param length the length of the outputted octet string
+   * @return an octet string as a number array of base256 integers (Uint8Array)
    */
-  private i2osp(sigInt: number, sigLen: number): string[] {
-    // Create an array to store the hex octets
-    var octets: string[] = [];
+  private i2osp(x: bigint, length: number): Uint8Array {
+    // Check the inputted integer for its size
+    if (x < BigInt(Math.pow(256, length))) {
+      // The size is good, continue
+      // Create an array to hold the decimal bytes (integers)
+      var ints: number[] = [];
 
-    // dev return
-    return octets;
+      // Create a loop that will continue until the x value is 0
+      while (x) {
+        // Calculate the individual integer from the modulus of x and 256
+        const int: number = Number(x % 256n);
+
+        // Add the integer to the array of integers
+        ints.push(int);
+
+        // Re-assign x to be the floor of x/256
+        x = x / 256n;
+      }
+
+      // Calculate how many remaining values are needed to meet the octet string length
+      const n = length - ints.length;
+
+      // Push n 0s as padding to the integer array
+      for (var i = 0; i < n; i++) {
+        // Push a 0 digit to the array
+        ints.push(0);
+      }
+
+      // Reverse the integers array to have the correct order
+      ints = ints.reverse();
+
+      // Return the integer array as a Uint8Array
+      return new Uint8Array(ints);
+    } else {
+      // Throw an error since it is too big and return an empty array
+      throw new Error("Signature integer representation is too large.");
+    }
   }
 }
