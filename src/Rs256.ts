@@ -125,14 +125,17 @@ export class Rs256 {
     // The NULL parameters for the algorithm's OID are
     const oidParams: string = "05 00";
 
-    // Therefore the AlgorithmIdentifier has a sequence tag of 30 and length of 13, therefore we have
-    const algorithmIdentifier: string = `30 13 ${oid} ${oidParams}`;
+    // Therefore the AlgorithmIdentifier has a sequence tag of 30 and length of 13 (0x0D), therefore we have
+    const algorithmIdentifier: string = `30 0D ${oid} ${oidParams}`;
 
-    // The SHA-256 digest has a length of 32, and we can indicate an octect string by hex code 04
-    const digest: string = `04 32 ${hash}`;
+    // The SHA-256 digest has a length of 32 bytes (0x20), and we can identify an octect string by 0x04
+    const digest: string = `04 20 ${hash}`;
 
-    // The DigestInfo sequence's length can be found as
-    const length: number = 13 + 2 + 2 + 32;
+    // The DigestInfo sequence's length in decimal can be found as
+    const lengthDec: number = 13 + 2 + 2 + 32;
+
+    // We therefore must convert the lengthDec to hexadecimal
+    const length = lengthDec.toString(16);
 
     // We can complete the DigestInfo hex string by including the sequence tag and length
     const digestInfoDelimited: string = `30 ${length} ${algorithmIdentifier} ${digest}`;
