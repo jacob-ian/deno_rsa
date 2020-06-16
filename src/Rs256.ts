@@ -29,26 +29,25 @@ export class Rs256 {
    * @param key The RSA private key to sign the message with
    * @param message The message to be signed and converted into a signature
    */
-  public sign(key: string, message: string | number[]): string {
+  public sign(key: string, message: string | number[]): Uint8Array {
     // Encode the message using the EMSA-PKCS1-v1_5 method
     const EM = this.emsaEncode(message);
 
     // Get the length of the encoded message (the length of the signature) in octets
     const k = EM.length;
+
     // Convert the encoded message into an integer message representative
     const m = this.os2ip(EM);
 
     // Create a signature integer representative by applying the RSASP1 signature primitive
     // to the RSA private key and the integer message representative
-    //const s = this.rsasp1(key, m);
+    const s = this.rsasp1(key, m);
 
     // Convert the signature integer representative into an octet stream (hex string) signature
-    //const signature = this.i2osp(s, k);
+    const signature = this.i2osp(s, k);
 
     // Return the RSASSA-PKCS1-V1_5 signature
-    //return signature;
-    //dev return
-    return "";
+    return signature;
   }
 
   public verify() {}
@@ -192,12 +191,12 @@ export class Rs256 {
    * @param message the intger message representative
    * @return a number denoting the integer representative of the signature
    */
-  private rsasp1(key: string, message: number): number {
+  private rsasp1(key: string, message: bigint): bigint {
     //
 
     // Return the integer signature
     // dev return
-    return 2;
+    return 2n;
   }
 
   /**
