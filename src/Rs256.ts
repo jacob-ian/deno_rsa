@@ -208,11 +208,23 @@ export class Rs256 {
     // First we need to parse the private key and retrieve the exponent and modulus
     const { modulus, exponent } = this.decodeKey(key);
 
-    // To complete the signature calculation, we must use a Rust Web Assembly module as
-    // we are working with 2048-bit integers and Javscript can only handle 64-bit
-    console.log(modulus);
+    // Convert the modulus and exponent hex strings to BigInts
+    const n = BigInt(modulus);
+    const d = BigInt(exponent);
 
-    return 1n;
+    // Check for the size of the message
+    if (message < n - 1n) {
+      // Calculate the signature integer representative
+      const s = (message ** d) % n;
+
+      // Return the signature integer representative
+      return s;
+    } else {
+      // The message representative is too large
+      throw new Error(
+        "The message representative is too large for the modulus.",
+      );
+    }
   }
 
   /**
