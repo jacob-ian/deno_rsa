@@ -190,6 +190,53 @@ export class RsaKey {
   }
 
   /**
+   * Extract the octet strings for each value of intended type 
+   * @param array the hexadecimal array of the DER encoded ASN.1 object
+   * @param identifier the identifier of the type to extract values of e.g. ("02") for integer
+   */
+  private extractValues(array: string[], identifier: string): string[][] {
+    // Create an output array of string arrays
+    var output: string[][] = [];
+
+    // Create a loop to continuously extract the hex arrays
+    // for each value until there are none left
+    while (array.length) {
+      // Check if there is a value to work with
+      if (array[0]) {
+        // Get the next instance of the identifier
+        var i = array.indexOf(identifier);
+
+        // Get the lengths of the current value and
+        // the number of length octets for this value
+        var lengths = this.getLength(array, i);
+        var len = lengths[0];
+        var numLen = lengths[1];
+
+        // Check if this is an instance of the identifier
+        if (array[i].includes(identifier)) {
+          // Get the hex array for this value
+          var hexArr = this.slice(array, i, lengths);
+
+          // Add the hex array to the output
+          output.push(hexArr);
+        }
+
+        // Get the array cutoff value to shorten the array
+        var j = i + 1 + numLen + len;
+
+        // Shorten the array to include just the next values
+        array = array.slice(j);
+      } else {
+        // Force the length to 0
+        array.length = 0;
+      }
+    }
+
+    // Return the output array
+    return output;
+  }
+
+  /**
    * Decode base64 into a hexadecimal array
    * @param base64 A string containing the base64 encoded data
    */
@@ -342,48 +389,6 @@ export class RsaKey {
 
     // Return the string
     return hexStr;
-  }
-
-  private extractValues(array: string[], identifier: string): string[][] {
-    // Create an output array of string arrays
-    var output: string[][] = [];
-
-    // Create a loop to continuously extract the hex arrays
-    // for each value until there are none left
-    while (array.length) {
-      // Check if there is a value to work with
-      if (array[0]) {
-        // Get the next instance of the identifier
-        var i = array.indexOf(identifier);
-
-        // Get the lengths of the current value and
-        // the number of length octets for this value
-        var lengths = this.getLength(array, i);
-        var len = lengths[0];
-        var numLen = lengths[1];
-
-        // Check if this is an instance of the identifier
-        if (array[i].includes(identifier)) {
-          // Get the hex array for this value
-          var hexArr = this.slice(array, i, lengths);
-
-          // Add the hex array to the output
-          output.push(hexArr);
-        }
-
-        // Get the array cutoff value to shorten the array
-        var j = i + 1 + numLen + len;
-
-        // Shorten the array to include just the next values
-        array = array.slice(j);
-      } else {
-        // Force the length to 0
-        array.length = 0;
-      }
-    }
-
-    // Return the output array
-    return output;
   }
 
   private hexToUintDot(array: string[]) {

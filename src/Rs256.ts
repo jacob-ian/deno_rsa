@@ -206,12 +206,60 @@ export class Rs256 {
    */
   private rsasp1(key: string, message: bigint): bigint {
     // First we need to parse the private key and retrieve the exponent and modulus
-    const { modulus, exponent } = this.parseKey(key);
+    const { modulus, exponent } = this.decodeKey(key);
 
     // To complete the signature calculation, we must use a Rust Web Assembly module as
     // we are working with 2048-bit integers and Javscript can only handle 64-bit
+    console.log(modulus);
 
     return 1n;
+  }
+
+  /**
+   * Processes the RSA private key by converting it to hex and decoding the DER ASN.1 object.
+   * @param key The RSA Private key
+   * @return an object containing the modulus and the exponent.
+   */
+  private decodeKey(key: string) {
+    // Split the key into groups based around the hyphens
+    var keySplit = key.split("-----");
+
+    // Remove the first and last parts of the keySplit array
+    keySplit = [keySplit[1], keySplit[2], keySplit[3]];
+
+    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8 (enc or not-enc)),
+    // the second element is the base64 encoded key and the third part is the ending statement.
+    // Get the base64 encoded key
+    const ident: string = keySplit[0];
+    const base64: string = keySplit[1];
+
+    // Check if the private key is PKCS1 or PKCS8
+    if (ident.includes("BEGIN PRIVATE KEY")) {
+      // This is a PKCS8 key, decode it
+      const pkcs8Key = new RsaKey().decodePkcs8(base64);
+
+      // Get the modulus and private exponent from the decoded key
+      const modulus: string = pkcs8Key.PrivateKey.modulus;
+      const exponent: string = pkcs8Key.PrivateKey.privateExponent;
+
+      // Return the modulus and private exponent
+      return { modulus, exponent };
+    } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
+      // This is a PKCS1 key, decode it
+      const pkcs1Key = new RsaKey().decodePkcs1(base64);
+
+      // Get the modulus and private exponent
+      const modulus: string = pkcs1Key.modulus;
+      const exponent: string = pkcs1Key.privateExponent;
+
+      // Return them both
+      return { modulus, exponent };
+    } else {
+      // Throw an error
+      throw new Error(
+        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key.",
+      );
+    }
   }
 
   /**
@@ -256,55 +304,6 @@ export class Rs256 {
     } else {
       // Throw an error since it is too big and return an empty array
       throw new Error("Signature integer representation is too large.");
-    }
-  }
-
-  /**
-   * Parses the RSA private key by converting it to hex and decoding the DER ASN.1 object.
-   * @param key The RSA Private key
-   * @return an object containing the modulus and the exponent.
-   */
-  private parseKey(key: string) {
-    // Split the key into groups based around the hyphens
-    var keySplit = key.split("-----");
-
-    // Remove the first and last parts of the keySplit array
-    keySplit = [keySplit[1], keySplit[2], keySplit[3]];
-
-    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8 (enc or not-enc)),
-    // the second element is the base64 encoded key and the third part is the ending statement.
-    // Get the base64 encoded key
-    const ident: string = keySplit[0];
-    const base64: string = keySplit[1];
-
-    // Check if the private key is PKCS1 or PKCS8
-    if (ident.includes("BEGIN PRIVATE KEY")) {
-      // This is a PKCS8 key, decode it
-      const pkcs8Key = new RsaKey().decodePkcs8(base64);
-
-      console.log(pkcs8Key);
-
-      // Get the modulus and private exponent from the decoded key
-      const modulus: string = pkcs8Key.PrivateKey.modulus;
-      const exponent: string = pkcs8Key.PrivateKey.privateExponent;
-
-      // Return the modulus and private exponent
-      return { modulus, exponent };
-    } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
-      // This is a PKCS1 key, decode it
-      const pkcs1Key = new RsaKey().decodePkcs1(base64);
-
-      // Get the modulus and private exponent
-      const modulus: string = pkcs1Key.modulus;
-      const exponent: string = pkcs1Key.privateExponent;
-
-      // Return them both
-      return { modulus, exponent };
-    } else {
-      // Throw an error
-      throw new Error(
-        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key.",
-      );
     }
   }
 }
