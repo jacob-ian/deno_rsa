@@ -96,8 +96,8 @@ export class RsaKey {
       algOidPos + 1 + algOidLen[1] + algOidLen[0],
     );
 
-    // Convert the hexadecimal representation of the OID into a readable TLV
-    const oidTlv = this.oidHexToTlv(algorithmOid);
+    // Convert the hexadecimal representation of the OID into a uint8 separated by dots (I can't figure out TLV)
+    const oidTlv = this.hexToUintDot(algorithmOid);
 
     // Now we can find the RSAPrivateKey inside the rest of the hexadecimal key
     // Get the position of the Private Key's octet string
@@ -142,8 +142,9 @@ export class RsaKey {
   private decodeRsaKey(key: string[]): RSAPrivateKey {
     // A quick note that the hex arrays will not be converted into integers as they will be 1024 or 2048-bit and JavaScript cannot parse integers of that size
 
-    // Extract the integer ASN.1 objects hex arrays from the key
-    const hexArray = this.extractValues(key, "02");
+    // Extract the integer ASN.1 objects hex arrays from the key (after the first sequence)
+    const from = key.indexOf("02");
+    const hexArray = this.extractValues(key.slice(from), "02");
 
     // The first value is the version
     const version = this.hexToLumpedInt(hexArray[0]);
@@ -247,6 +248,9 @@ export class RsaKey {
         octetStr += octet;
       });
 
+      // Add one more to the octet count for the indicating length octet
+      octetCount++;
+
       // Return the length in bytes of the ASN.1 type and number of length octets
       return [parseInt(octetStr), octetCount];
     } else {
@@ -346,10 +350,12 @@ export class RsaKey {
 
     // Create a loop to continuously extract the hex arrays
     // for each value until there are none left
-    var i = 0;
     while (array.length) {
       // Check if there is a value to work with
-      if (array[i]) {
+      if (array[0]) {
+        // Get the next instance of the identifier
+        var i = array.indexOf(identifier);
+
         // Get the lengths of the current value and
         // the number of length octets for this value
         var lengths = this.getLength(array, i);
@@ -377,6 +383,22 @@ export class RsaKey {
     }
 
     // Return the output array
+    return output;
+  }
+
+  private hexToUintDot(array: string[]) {
+    // Create output string
+    var output = "";
+
+    // Loop through the hex array converting each value to an integer
+    array.forEach((octet) => {
+      output += `${parseInt(`0x${octet}`)}.`;
+    });
+
+    // Remove the last dot
+    output = output.slice(0, output.length - 1);
+
+    // Return the string
     return output;
   }
 }
