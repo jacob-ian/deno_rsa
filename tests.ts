@@ -21,7 +21,15 @@ const json: any = await readJson("./keyfile.json");
 // Get the key
 const key = json.private_key;
 
+// Start a timer
+const tNow = performance.now();
+
 // Create a signature
 const signature = rs256.sign(key, msg);
 
+// Calcuate the duration of the signature generation
+const duration = performance.now() - tNow;
+
+// Log the signature and the time it took to produce it
 console.log(signature);
+console.log(`Time taken to generate signature: ${duration}ms`);
