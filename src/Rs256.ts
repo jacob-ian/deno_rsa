@@ -10,15 +10,13 @@
 
 /* IMPORTS */
 import { Sha256 } from "https://deno.land/std@v0.57.0/hash/sha256.ts";
+import { RsaKey } from "./RsaKey.ts";
 
 /**
  * A class to generate a RSASSA-PKCS1-V1_5 signature from an input message and a private key.
  */
 export class Rs256 {
   /* PROPERTIES */
-
-  // The OID for the RSA Public Key algorithm
-  private RSAKeyAlgOid: string = "42.134.72.134.247.13.1.1.1";
 
   /* METHODS */
   constructor() {}
@@ -149,7 +147,8 @@ export class Rs256 {
     }
 
     // We can complete the DigestInfo hex string by including the sequence tag and length
-    const digestInfoDelimited: string = `30 ${length} ${algorithmIdentifier} ${digest}`;
+    const digestInfoDelimited: string =
+      `30 ${length} ${algorithmIdentifier} ${digest}`;
 
     // Remove all spaces from the string
     const digestInfoArr = digestInfoDelimited.split(" ");
@@ -207,7 +206,7 @@ export class Rs256 {
    */
   private rsasp1(key: string, message: bigint): bigint {
     // First we need to parse the private key and retrieve the exponent and modulus
-    const { modulusHex, exponentHex } = this.parseKey(key);
+    const { modulus, exponent } = this.parseKey(key);
 
     // To complete the signature calculation, we must use a Rust Web Assembly module as
     // we are working with 2048-bit integers and Javscript can only handle 64-bit
@@ -278,193 +277,34 @@ export class Rs256 {
     const ident: string = keySplit[0];
     const base64: string = keySplit[1];
 
-    // Decode the base64 into binary
-    const bin = atob(base64);
-
-    // Create an array to store the hexadecimals
-    var hexKey: string[] = [];
-
-    // Loop through the binary characters in the binary string and convert them to hexadecimal
-    for (var i = 0; i < bin.length; i++) {
-      // Get the hex value for the current character
-      var hex = bin.charCodeAt(i).toString(16);
-
-      // Check if a '0' needs to be added to the hex to pad the value
-      if (hex.length < 2) {
-        hex = `0${hex}`;
-      }
-
-      // Capitalise the hex value if needed
-      hex = hex.toUpperCase();
-
-      // Push the hex code into the array
-      hexKey.push(hex);
-    }
-
-    // Create an array to hold the RSA Private key
-    var rsaKey: string[] = hexKey;
-
     // Check if the private key is PKCS1 or PKCS8
     if (ident.includes("BEGIN PRIVATE KEY")) {
-      // This is a PKCS8 key and thus includes a "wrapper" around an algorithm identifier and private key
-      // Search for the byte length of the second sequence (the AlgorithmIdentifier) in the PrivateKeyInfo sequence
-      const algIDSeqLenPos = hexKey.indexOf("30", 1) + 1;
+      // This is a PKCS8 key, decode it
+      const pkcs8Key = new RsaKey().decodePkcs8(base64);
 
-      // Get the length hexadecimal and convert it to an integer
-      const algIdSeqLen = parseInt(`0x${hexKey[algIDSeqLenPos]}`);
+      console.log(pkcs8Key);
 
-      // Put the contents of the AlgorithmIdentifier sequence in an array
-      const algorithmIdentifier = hexKey.slice(
-        algIDSeqLenPos + 1,
-        algIDSeqLenPos + 1 + algIdSeqLen
-      );
+      // Get the modulus and private exponent from the decoded key
+      const modulus: string = pkcs8Key.PrivateKey.modulus;
+      const exponent: string = pkcs8Key.PrivateKey.privateExponent;
 
-      // Create an array to store the algorithm object ID
-      var algorithmOid: string[] = [];
+      // Return the modulus and private exponent
+      return { modulus, exponent };
+    } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
+      // This is a PKCS1 key, decode it
+      const pkcs1Key = new RsaKey().decodePkcs1(base64);
 
-      // Ensure that the first octet is 0x06 (OID) and get the OID as an octet array
-      if (algorithmIdentifier[0].includes("06")) {
-        // Get the length of the OID
-        const len = parseInt(`0x${algorithmIdentifier[1]}`);
+      // Get the modulus and private exponent
+      const modulus: string = pkcs1Key.modulus;
+      const exponent: string = pkcs1Key.privateExponent;
 
-        // Get the OID
-        algorithmOid = algorithmIdentifier.slice(2, 2 + len);
-      } else {
-        throw new Error("Private key is improperly encoded.");
-      }
-
-      // Convert the OID from hex to dot delimited decimal
-      var oidDecimal: string = "";
-      algorithmOid.forEach((byte) => {
-        // Parse the integer
-        const int = parseInt(`0x${byte}`);
-
-        // Put the integer in the string with a dot
-        oidDecimal += `${int}.`;
-      });
-
-      // Remove the dot on the end
-      oidDecimal = oidDecimal.slice(0, oidDecimal.lastIndexOf("."));
-
-      // Check to ensure that the algorithm is the RSA Key algorithm
-      if (!oidDecimal.includes(this.RSAKeyAlgOid)) {
-        // Throw an error saying that there is no RSA Key in Private Key
-        throw new Error("There is no RSA Key in the private key.");
-      }
-
-      // Get the position of the start of the RSA Key's octet string
-      const keyPos = algIDSeqLenPos + 1 + algIdSeqLen;
-
-      // Ensure that the octet has the value 0x04 (octet string)
-      if (!hexKey[keyPos].includes("04")) {
-        throw new Error("The RSA Key couldn't be found in PKCS8.");
-      }
-
-      // Get the next occurring sequence, the RSA Private Key
-      var rsaKey = hexKey.slice(hexKey.indexOf("30", keyPos));
-    } else if (
-      !ident.includes("BEGIN RSA PRIVATE KEY") &&
-      !ident.includes("BEGIN PRIVATE KEY")
-    ) {
-      // This key isn't unencrypted PKCS8 or PKCS1, throw an error
+      // Return them both
+      return { modulus, exponent };
+    } else {
+      // Throw an error
       throw new Error(
-        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key."
+        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key.",
       );
     }
-
-    // Extract the modulus and private exponent from the RSA Key
-    // Slice the RSA Key array such that the algorithm version integer is removed
-    if (rsaKey[rsaKey.indexOf("02") + 1].includes("01")) {
-      rsaKey = rsaKey.slice(rsaKey.indexOf("02") + 3);
-    } else {
-      throw new Error("RSA Key is incorrectly encoded.");
-    }
-
-    // The rsaKey array now begins at the modulus integer
-    // Create a variable to store the length of the modulus
-    var modLen: number = 0;
-    var numLengthOctets = 1;
-
-    // Get the length of the modulus in bytes by first checking if definite long length is used
-    if (rsaKey[1].charAt(0).includes("8")) {
-      // Long length is used, the modulus is longer than 127 bytes.
-      // Check how many length octets follow this octet
-      numLengthOctets = parseInt(rsaKey[1].charAt(1));
-
-      // Get the length octets
-      const lengthOctets = rsaKey.slice(2, 2 + numLengthOctets);
-
-      // Create a string out of the array of length octets
-      var lengthOctetsStr = "";
-      lengthOctets.forEach((octet) => {
-        lengthOctetsStr += octet;
-      });
-
-      // Calculate the modulus length
-      modLen = parseInt(`0x${lengthOctetsStr}`);
-    } else {
-      // Get the integer from the hexadecimal length
-      modLen = parseInt(`0x${rsaKey[1]}`);
-    }
-
-    // Get the position of the modulus octet array
-    const modulusPos = 2 + numLengthOctets;
-
-    // Get the modulus hexadecimal array
-    var modulusHex = rsaKey.slice(modulusPos, modulusPos + modLen);
-
-    // Remove the first padding null byte (0x00)
-    modulusHex = modulusHex.slice(1);
-
-    // Define the position of the integer public exponent
-    const pubExpPos = modulusPos + modLen;
-    var pubExpLen: number = 0;
-
-    // Get the identifier of the public exponent integer
-    if (rsaKey[pubExpPos].includes("02")) {
-      // Find the length of the integer public exponent octet
-      pubExpLen = parseInt(`0x${rsaKey[modulusPos + modLen + 1]}`);
-    } else {
-      throw new Error("RSA Private key encoded incorrectly.");
-    }
-
-    // Skip over pubExpLen octets to get to the private exponent
-    // Get the position of the private exponent integer and its length
-    const privExpPos = pubExpPos + pubExpLen + 2;
-    var numExpLengthOctets = 1;
-    var privExpLen = 0;
-
-    // Check if long length is used
-    if (rsaKey[privExpPos + 1].charAt(0).includes("8")) {
-      // Get the number of length octets
-      numExpLengthOctets = parseInt(rsaKey[privExpPos + 1].charAt(1));
-
-      // Get the length octets
-      const expLenOctets = rsaKey.slice(
-        privExpPos + 2,
-        privExpPos + 2 + numExpLengthOctets
-      );
-
-      // Convert the octets to hex string
-      var lenOctetsStr = "0x";
-      expLenOctets.forEach((octet) => {
-        lenOctetsStr += octet;
-      });
-
-      // Calculate the length of the private exponent in bytes/octets
-      privExpLen = parseInt(lenOctetsStr);
-    } else {
-      // Calculate the length of the private exponent from short form
-      privExpLen = parseInt(`0x${rsaKey[privExpPos + 1]}`);
-    }
-
-    // Get the position of the exponent hex array
-    const expHexPos = privExpPos + numLengthOctets + 2;
-
-    // Get the private exponent from the RSA key
-    const exponentHex = rsaKey.slice(expHexPos, expHexPos + privExpLen);
-
-    // Return the hexadecimal arrays with the modulus and exponent
-    return { modulusHex, exponentHex };
   }
 }
