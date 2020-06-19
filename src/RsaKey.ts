@@ -1,6 +1,6 @@
 /**
  * This file contains the classes and methods required to decode an RSA Key encoded with DER in ASN.1.
- * 
+ *
  * @author Jacob Ian Matthews
  * @version 1.0, 17/06/2020
  */
@@ -43,10 +43,10 @@ export class RsaKey {
   constructor() {}
 
   /**
-   * 
+   *
    * PUBLIC METHODS
-   * 
-  */
+   *
+   */
 
   /**
    * Decode an RSA Private Key
@@ -93,7 +93,7 @@ export class RsaKey {
     // Get the algorithm OID
     const algorithmOid = hexKey.slice(
       algOidPos + 1 + algOidLen[1],
-      algOidPos + 1 + algOidLen[1] + algOidLen[0],
+      algOidPos + 1 + algOidLen[1] + algOidLen[0]
     );
 
     // Convert the hexadecimal representation of the OID into a uint8 separated by dots (I can't figure out TLV)
@@ -130,10 +130,10 @@ export class RsaKey {
   }
 
   /**
-   * 
+   *
    * PRIVATE METHODS
-   * 
-  */
+   *
+   */
 
   /**
    * Decode the DER encoded RSA Key and return a RSAPrivateKey
@@ -171,7 +171,7 @@ export class RsaKey {
     // The eighth value is d mod (q-1)
     const exponent2 = this.hexToString(hexArray[7]);
 
-    // The final value is the coefficient invQ mod p
+    // The final value is the coefficient Qinv mod p
     const coefficient = this.hexToString(hexArray[8]);
 
     // We can now output the RSAPrivateKey object
@@ -190,7 +190,7 @@ export class RsaKey {
   }
 
   /**
-   * Extract the octet strings for each value of intended type 
+   * Extract the octet strings for each value of intended type
    * @param array the hexadecimal array of the DER encoded ASN.1 object
    * @param identifier the identifier of the type to extract values of e.g. ("02") for integer
    */
@@ -314,9 +314,7 @@ export class RsaKey {
     // Group the OID into 6 integer blocks
     var oid1 = parseInt(`0x${oidHex[0]}`);
     var oid2 = parseInt(`0x${oidHex[1]}${oidHex[2]}`);
-    var oid3 = parseInt(
-      `0x${oidHex[3]}${oidHex[4]}${oidHex[5]}`,
-    );
+    var oid3 = parseInt(`0x${oidHex[3]}${oidHex[4]}${oidHex[5]}`);
     var oid4 = parseInt(`0x${oidHex[6]}`);
     var oid5 = parseInt(`0x${oidHex[7]}`);
     var oid6 = parseInt(`0x${oidHex[8]}`);
@@ -335,13 +333,13 @@ export class RsaKey {
    * position of the type's identifier
    * @param array An array to collect a section from
    * @param identPos The position of the ASN1.0 identifier
-   * @param lengthArr the array for this identifier generated 
+   * @param lengthArr the array for this identifier generated
    * by this.getLength()
    */
   private slice(
     array: string[],
     identifierPos: number,
-    lengthArr: number[],
+    lengthArr: number[]
   ): string[] {
     // Get the length of the array to take
     const length = lengthArr[0];

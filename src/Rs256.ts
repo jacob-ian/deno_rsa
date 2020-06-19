@@ -147,8 +147,7 @@ export class Rs256 {
     }
 
     // We can complete the DigestInfo hex string by including the sequence tag and length
-    const digestInfoDelimited: string =
-      `30 ${length} ${algorithmIdentifier} ${digest}`;
+    const digestInfoDelimited: string = `30 ${length} ${algorithmIdentifier} ${digest}`;
 
     // Remove all spaces from the string
     const digestInfoArr = digestInfoDelimited.split(" ");
@@ -212,19 +211,30 @@ export class Rs256 {
     const n = BigInt(modulus);
     const d = BigInt(exponent);
 
-    // Check for the size of the message
-    if (message < n - 1n) {
-      // Calculate the signature integer representative
-      const s = (message ** d) % n;
+    // To complete the exponentiated modulus calculation, we will use an algorithm
+    // Determine the binary representation of the private exponent
+    const dBinary = d.toString(2);
 
-      // Return the signature integer representative
-      return s;
-    } else {
-      // The message representative is too large
-      throw new Error(
-        "The message representative is too large for the modulus.",
-      );
+    // Split the binary values into an array for iteration
+    const binArr = dBinary.split("");
+
+    // Calculate the initial value (where the binary exponent value is 1)
+    var signature = message % n;
+
+    // Loop through the array of binary values. If the binary value is 0, we square the signature and get
+    // its modulus. If the binary value is 1, we square the signature and multiply it by the message.
+    for (var i = 1; i < binArr.length; i++) {
+      // Get the modulo of the signature squared
+      signature = signature ** 2n % n;
+
+      // If the binary value is 1, we also multiply the signature by the message and get the modulus
+      if (binArr[i].includes("1")) {
+        signature = (signature * message) % n;
+      }
     }
+
+    // We can now return the signature integer representative
+    return signature;
   }
 
   /**
@@ -269,7 +279,7 @@ export class Rs256 {
     } else {
       // Throw an error
       throw new Error(
-        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key.",
+        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key."
       );
     }
   }
@@ -282,7 +292,7 @@ export class Rs256 {
    */
   private i2osp(x: bigint, length: number): Uint8Array {
     // Check the inputted integer for its size
-    if (x < BigInt(Math.pow(256, length))) {
+    if (x >= BigInt(Math.pow(256, length))) {
       // The size is good, continue
       // Create an array to hold the decimal bytes (integers)
       var ints: number[] = [];
