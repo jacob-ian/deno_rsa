@@ -32,7 +32,10 @@ export class Rs256 {
    * @param key The RSA private key to sign the message with
    * @param message The message to be signed and converted into a signature
    */
-  public sign(key: string, message: string | number[]): Uint8Array {
+  public sign(
+    key: string,
+    message: string | number[] | Uint8Array
+  ): Uint8Array {
     // Encode the message using the EMSA-PKCS1-v1_5 method
     const EM = this.emsaEncode(message);
 
@@ -66,7 +69,7 @@ export class Rs256 {
    * @param message The message to encode with EMSA-PKCS1-v1_5
    * @return the encoded message as an array of hex strings (octets)
    */
-  private emsaEncode(message: string | number[]): string[] {
+  private emsaEncode(message: string | number[] | Uint8Array): string[] {
     // Create a hash of the message with SHA-256
     const hash: string = new Sha256().update(message).hex();
 
@@ -187,7 +190,7 @@ export class Rs256 {
       const int = emInts[i];
 
       // Calculate the value for this integer
-      const value: bigint = BigInt(int * Math.pow(256, i));
+      const value: bigint = BigInt(int) * 256n ** BigInt(i);
 
       // Add it to the output integer
       x += value;
@@ -204,37 +207,43 @@ export class Rs256 {
    * @return a number denoting the integer representative of the signature
    */
   private rsasp1(key: string, message: bigint): bigint {
-    // First we need to parse the private key and retrieve the exponent and modulus
+    // First we need to decode the private key and retrieve the exponent and modulus
     const { modulus, exponent } = this.decodeKey(key);
 
     // Convert the modulus and exponent hex strings to BigInts
-    const n = BigInt(modulus);
-    const d = BigInt(exponent);
+    var n = BigInt(modulus);
+    var d = BigInt(exponent);
 
-    // To complete the exponentiated modulus calculation, we will use an algorithm
-    // Determine the binary representation of the private exponent
-    const dBinary = d.toString(2);
+    // Check to see if the message is in the right value range
+    if (message > 1n && message < n - 1n) {
+      // To calculatqe the signature integer representative, we will use the Mod Power algorithm
+      // Create the signature variable
+      var signature = 1n;
 
-    // Split the binary values into an array for iteration
-    const binArr = dBinary.split("");
+      // Let the message equal its modulo
+      var message = message % n;
 
-    // Calculate the initial value (where the binary exponent value is 1)
-    var signature = message % n;
+      // Create a loop to loop through the exponent
+      while (d > 0) {
+        // Check the modulus of the exponent and 2
+        if (d % 2n === 1n) {
+          // Add to the signature
+          signature = (signature * message) % n;
+        }
 
-    // Loop through the array of binary values. If the binary value is 0, we square the signature and get
-    // its modulus. If the binary value is 1, we square the signature and multiply it by the message.
-    for (var i = 1; i < binArr.length; i++) {
-      // Get the modulo of the signature squared
-      signature = signature ** 2n % n;
+        // Bitwise decrease the exponent
+        d = d >> 1n;
 
-      // If the binary value is 1, we also multiply the signature by the message and get the modulus
-      if (binArr[i].includes("1")) {
-        signature = (signature * message) % n;
+        // Change the message variable
+        message = (message * message) % n;
       }
-    }
 
-    // We can now return the signature integer representative
-    return signature;
+      // Return the signature
+      return signature;
+    } else {
+      // Throw an error
+      throw new Error("Message representative out of range.");
+    }
   }
 
   /**
