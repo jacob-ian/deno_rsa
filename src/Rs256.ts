@@ -36,18 +36,21 @@ export class Rs256 {
     key: string,
     message: string | number[] | Uint8Array
   ): Uint8Array {
+    // Decode the RSA Private Key to get the modulus and private exponent
+    const rsaPrivateKey = new RsaKey().decode(key);
+
+    // Get the length of the private key's modulus in octets
+    const k = (rsaPrivateKey.modulus.length - 2) / 2;
+
     // Encode the message using the EMSA-PKCS1-v1_5 method
-    const EM = this.emsaEncode(message);
+    const EM = this.emsaEncode(message, k);
 
-    // Get the length of the encoded message (the length of the signature) in octets
-    const k = EM.length;
-
-    // Convert the encoded message into an integer message representative
+    // Convert the encoded message into an integer primitive
     const m = this.os2ip(EM);
 
     // Create a signature integer representative by applying the RSASP1 signature primitive
     // to the RSA private key and the integer message representative
-    const s = this.rsasp1(key, m);
+    const s = this.rsasp1(rsaPrivateKey, m);
 
     // Convert the signature integer representative into an octet stream (hex string) signature
     const signature = this.i2osp(s, k);
@@ -67,60 +70,75 @@ export class Rs256 {
   /**
    * Encode a message using EMSA-PKCS1-v1_5.
    * @param message The message to encode with EMSA-PKCS1-v1_5
+   * @param emLen The length of the modulus in octets
    * @return the encoded message as an array of hex strings (octets)
    */
-  private emsaEncode(message: string | number[] | Uint8Array): string[] {
+  private emsaEncode(
+    message: string | number[] | Uint8Array,
+    emLen: number
+  ): string[] {
     // Create a hash of the message with SHA-256
     const hash: string = new Sha256().update(message).hex();
 
     // Encode the hash with DER in an ASN.1 DigestInfo object
     const T: string = this.digestInfo(hash);
 
-    // Create an octet string PS that is 8 octets long with hexadecimal value 0xFF
-    const PS: string = "FF FF FF FF FF FF FF FF";
+    // Let tLen be the length of the DigestInfo object in octets
+    const tLen = T.length / 2;
 
-    // Create the encoded message string by concatenating PS and T with padding
-    const emSpaced = `00 01 ${PS} 00 ${T}`;
+    // Check the length of T against the length of the modulus
+    if (!(emLen < tLen + 11)) {
+      // Calculate the number of PS octets
 
-    // Remove all spaces from the string to ensure uniformity
-    const emArr = emSpaced.split(" ");
-    var emStr: string = "";
-    emArr.forEach((element) => {
-      emStr += element;
-    });
+      // Create an octet string PS that is 8 octets long with hexadecimal value 0xFF
+      const PS: string = "FF FF FF FF FF FF FF FF";
 
-    // Make sure all letters are capitalised (rather than having a mix)
-    emStr = emStr.toUpperCase();
+      // Create the encoded message string by concatenating PS and T with padding
+      const emSpaced = `00 01 ${PS} 00 ${T}`;
 
-    // Convert the string into an array of octets (individual hex strings)
-    // Create an octet array
-    var EM: string[] = [];
+      // Remove all spaces from the string to ensure uniformity
+      const emArr = emSpaced.split(" ");
+      var emStr: string = "";
+      emArr.forEach((element) => {
+        emStr += element;
+      });
 
-    // Split the string by characters to create an array
-    const emChars: string[] = emStr.split("");
+      // Make sure all letters are capitalised (rather than having a mix)
+      emStr = emStr.toUpperCase();
 
-    // Loop through the characters in the array, lumping them into pairs to put in the EM output
-    var i = 0;
-    var loop = true;
-    while (loop) {
-      // Get the current and next characters in the array
-      const current = emChars[i];
-      const next = emChars[i + 1];
+      // Convert the string into an array of octets (individual hex strings)
+      // Create an octet array
+      var EM: string[] = [];
 
-      // Add the octet into the EM output and append the hex identifier 0x
-      EM.push(`0x${current}${next}`);
+      // Split the string by characters to create an array
+      const emChars: string[] = emStr.split("");
 
-      // If this is the second last character, we can stop the loop now as there are no more octets
-      if (i > emChars.length - 4) {
-        loop = false;
-      } else {
-        // Increment the loop to the next octet (two places down)
-        i += 2;
+      // Loop through the characters in the array, lumping them into pairs to put in the EM output
+      var i = 0;
+      var loop = true;
+      while (loop) {
+        // Get the current and next characters in the array
+        const current = emChars[i];
+        const next = emChars[i + 1];
+
+        // Add the octet into the EM output and append the hex identifier 0x
+        EM.push(`0x${current}${next}`);
+
+        // If this is the second last character, we can stop the loop now as there are no more octets
+        if (i > emChars.length - 4) {
+          loop = false;
+        } else {
+          // Increment the loop to the next octet (two places down)
+          i += 2;
+        }
       }
-    }
 
-    // Return the encoded message
-    return EM;
+      // Return the encoded message
+      return EM;
+    } else {
+      // The encoded message is too short
+      throw new Error("The intended encoded message's length is too short.");
+    }
   }
 
   private digestInfo(hash: string): string {
@@ -206,13 +224,10 @@ export class Rs256 {
    * @param message the intger message representative
    * @return a number denoting the integer representative of the signature
    */
-  private rsasp1(key: string, message: bigint): bigint {
-    // First we need to decode the private key and retrieve the exponent and modulus
-    const { modulus, exponent } = this.decodeKey(key);
-
+  private rsasp1(key: any, message: bigint): bigint {
     // Convert the modulus and exponent hex strings to BigInts
-    var n = BigInt(modulus);
-    var d = BigInt(exponent);
+    var n = BigInt(key.modulus);
+    var d = BigInt(key.privateExponent);
 
     // Check to see if the message is in the right value range
     if (message > 1n && message < n - 1n) {
@@ -243,53 +258,6 @@ export class Rs256 {
     } else {
       // Throw an error
       throw new Error("Message representative out of range.");
-    }
-  }
-
-  /**
-   * Processes the RSA private key by converting it to hex and decoding the DER ASN.1 object.
-   * @param key The RSA Private key
-   * @return an object containing the modulus and the exponent.
-   */
-  private decodeKey(key: string) {
-    // Split the key into groups based around the hyphens
-    var keySplit = key.split("-----");
-
-    // Remove the first and last parts of the keySplit array
-    keySplit = [keySplit[1], keySplit[2], keySplit[3]];
-
-    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8 (enc or not-enc)),
-    // the second element is the base64 encoded key and the third part is the ending statement.
-    // Get the base64 encoded key
-    const ident: string = keySplit[0];
-    const base64: string = keySplit[1];
-
-    // Check if the private key is PKCS1 or PKCS8
-    if (ident.includes("BEGIN PRIVATE KEY")) {
-      // This is a PKCS8 key, decode it
-      const pkcs8Key = new RsaKey().decodePkcs8(base64);
-
-      // Get the modulus and private exponent from the decoded key
-      const modulus: string = pkcs8Key.PrivateKey.modulus;
-      const exponent: string = pkcs8Key.PrivateKey.privateExponent;
-
-      // Return the modulus and private exponent
-      return { modulus, exponent };
-    } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
-      // This is a PKCS1 key, decode it
-      const pkcs1Key = new RsaKey().decodePkcs1(base64);
-
-      // Get the modulus and private exponent
-      const modulus: string = pkcs1Key.modulus;
-      const exponent: string = pkcs1Key.privateExponent;
-
-      // Return them both
-      return { modulus, exponent };
-    } else {
-      // Throw an error
-      throw new Error(
-        "Private key cannot yet be recognised. Please use an unencrypted PKCS8 or PKCS1 key."
-      );
     }
   }
 

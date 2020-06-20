@@ -51,20 +51,37 @@ export class RsaKey {
   /**
    * Decode an RSA Private Key
    * @param key The base64 DER ASN.1 encoded RSA Private Key
-   * @param pkcsVersion The version of PKCS used in the RSA Key (must be 1 or 8)
    * @return an object containing the decoded ASN.1 object
    */
-  public decode(key: string, pkcsVersion: number): any {
-    // Check for the version of the RSA key
-    if (pkcsVersion === 1) {
-      // Decode version 1
-      return this.decodePkcs1(key);
-    } else if (pkcsVersion === 8) {
-      // Decode version 8
-      return this.decodePkcs8(key);
+  public decode(key: string): RSAPrivateKey {
+    // Check for the version of the RSA key by examining the preface
+    // Split the key into groups based around the hyphens
+    var keySplit = key.split("-----");
+
+    // Remove the first and last parts of the keySplit array
+    keySplit = [keySplit[1], keySplit[2], keySplit[3]];
+
+    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8 (enc or not-enc)),
+    // the second element is the base64 encoded key and the third part is the ending statement.
+    // Get the base64 encoded key
+    const ident: string = keySplit[0];
+    const base64: string = keySplit[1];
+
+    // Check the version
+    if (ident.includes("BEGIN PRIVATE KEY")) {
+      // The key is encoded in PKCS#8, therefore it is the RSA Private key wrapped in a
+      // PrivateKeyInfo ASN.1 object
+      // Decode using PKCS#8 and return the decoded RSA Private Key
+      return this.decodePkcs8(base64).PrivateKey;
+    } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
+      // The key is encoded with PKCS#1, meaning the key is not wrapped in an 'info' object
+      // Decode the PKCS#1 key
+      return this.decodePkcs1(base64);
     } else {
-      // Throw an error
-      throw new Error("Please use a PKCS1 or PKCS8 key.");
+      // Throw an error since it hasn't been encoded in a supported style
+      throw new Error(
+        "Please use an unencrypted PKCS#8 or PKCS#1 RSAwithSHA-256 Private key."
+      );
     }
   }
 
