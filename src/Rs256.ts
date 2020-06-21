@@ -12,6 +12,22 @@
 import { Sha256 } from "https://deno.land/std@v0.57.0/hash/sha256.ts";
 import { RsaKey } from "./RsaKey.ts";
 
+/* INTERFACES */
+/**
+ * An RSA Private Key object
+ */
+interface RSAPrivateKey {
+  version: number;
+  modulus: string;
+  publicExponent: number;
+  privateExponent: string;
+  prime1: string;
+  prime2: string;
+  exponent1: string;
+  exponent2: string;
+  coefficient: string;
+}
+
 /**
  * A class to generate a RSASSA-PKCS1-V1_5 signature from an input message and a private key.
  */
@@ -34,9 +50,9 @@ export class Rs256 {
    */
   public sign(
     key: string,
-    message: string | number[] | Uint8Array
-  ): Uint8Array {
-    // Decode the RSA Private Key to get the modulus and private exponent
+    message: string | number[] | Uint8Array,
+  ): string {
+    // Decode the RSA Private Key string to get the modulus and private exponent
     const rsaPrivateKey = new RsaKey().decode(key);
 
     // Get the length of the private key's modulus in octets
@@ -52,7 +68,7 @@ export class Rs256 {
     // to the RSA private key and the integer message representative
     const s = this.rsasp1(rsaPrivateKey, m);
 
-    // Convert the signature integer representative into an octet stream (hex string) signature
+    // Convert the signature integer representative into an octet string (hex string) signature
     const signature = this.i2osp(s, k);
 
     // Return the RSASSA-PKCS1-V1_5 signature
@@ -70,78 +86,64 @@ export class Rs256 {
   /**
    * Encode a message using EMSA-PKCS1-v1_5.
    * @param message The message to encode with EMSA-PKCS1-v1_5
-   * @param emLen The length of the modulus in octets
+   * @param emLen The length of the modulus in octets, and therefore the length of the encoded message
    * @return the encoded message as an array of hex strings (octets)
    */
   private emsaEncode(
     message: string | number[] | Uint8Array,
-    emLen: number
+    emLen: number,
   ): string[] {
-    // Create a hash of the message with SHA-256
-    const hash: string = new Sha256().update(message).hex();
-
-    // Encode the hash with DER in an ASN.1 DigestInfo object
-    const T: string = this.digestInfo(hash);
+    // Hash the message with SHA-256 and encode it with DER in an ASN.1 DigestInfo object
+    const T: string = this.digestInfo(message);
 
     // Let tLen be the length of the DigestInfo object in octets
     const tLen = T.length / 2;
 
     // Check the length of T against the length of the modulus
     if (!(emLen < tLen + 11)) {
-      // Calculate the number of PS octets
+      // Calculate the number of PS octets to add as padding
+      const pLen: number = emLen - tLen - 3;
 
-      // Create an octet string PS that is 8 octets long with hexadecimal value 0xFF
-      const PS: string = "FF FF FF FF FF FF FF FF";
+      // Ensure that it is greater than or equal to 8 octets
+      if (pLen >= 8) {
+        // Create the octet string PS with pLen 0xFF octets
+        var PS: string = "";
 
-      // Create the encoded message string by concatenating PS and T with padding
-      const emSpaced = `00 01 ${PS} 00 ${T}`;
-
-      // Remove all spaces from the string to ensure uniformity
-      const emArr = emSpaced.split(" ");
-      var emStr: string = "";
-      emArr.forEach((element) => {
-        emStr += element;
-      });
-
-      // Make sure all letters are capitalised (rather than having a mix)
-      emStr = emStr.toUpperCase();
-
-      // Convert the string into an array of octets (individual hex strings)
-      // Create an octet array
-      var EM: string[] = [];
-
-      // Split the string by characters to create an array
-      const emChars: string[] = emStr.split("");
-
-      // Loop through the characters in the array, lumping them into pairs to put in the EM output
-      var i = 0;
-      var loop = true;
-      while (loop) {
-        // Get the current and next characters in the array
-        const current = emChars[i];
-        const next = emChars[i + 1];
-
-        // Add the octet into the EM output and append the hex identifier 0x
-        EM.push(`0x${current}${next}`);
-
-        // If this is the second last character, we can stop the loop now as there are no more octets
-        if (i > emChars.length - 4) {
-          loop = false;
-        } else {
-          // Increment the loop to the next octet (two places down)
-          i += 2;
+        // Loop through adding the PS octets
+        for (var i = 0; i < pLen; i++) {
+          PS += "FF";
         }
-      }
 
-      // Return the encoded message
-      return EM;
+        // Create the encoded message string by concatenating PS and T with padding
+        const emSpaced = `00 01 ${PS} 00 ${T}`;
+
+        // Remove all whitespace from the string and capitalise all letters
+        var emStr = emSpaced.replace(/ /g, "").toUpperCase();
+
+        // Convert the string into an array of hexadecimal octet strings
+        const EM = this.stringToOctetArray(emStr);
+
+        // Return the encoded message
+        return EM;
+      } else {
+        // Return an error that the message's length is too long
+        throw new Error("The intended encoded message's length is too long");
+      }
     } else {
       // The encoded message is too short
       throw new Error("The intended encoded message's length is too short.");
     }
   }
 
-  private digestInfo(hash: string): string {
+  /**
+   * Hash the message and encode it in a DigestInfo ASN.1 object.
+   * @param message the message to be encoded
+   * @return a hex string with the DigestInfo object
+   */
+  private digestInfo(message: string | number[] | Uint8Array): string {
+    // Hash the message with SHA-256
+    const hash: string = new Sha256().update(message).hex();
+
     // Create the DER encoded DigestInfo with the hash and algorithm identifier
     // The OID for SHA-256 in space delimited hex string is
     const oid: string = "06 09 60 86 48 01 65 03 04 02 01";
@@ -168,44 +170,41 @@ export class Rs256 {
     }
 
     // We can complete the DigestInfo hex string by including the sequence tag and length
-    const digestInfoDelimited: string = `30 ${length} ${algorithmIdentifier} ${digest}`;
+    const digestInfoSpaced: string =
+      `30 ${length} ${algorithmIdentifier} ${digest}`;
 
-    // Remove all spaces from the string
-    const digestInfoArr = digestInfoDelimited.split(" ");
-    var digestInfo: string = "";
-    digestInfoArr.forEach((element) => {
-      digestInfo += element;
-    });
+    // Remove all whitespace from the string
+    var digestInfo = digestInfoSpaced.replace(/ /g, "");
 
     // Return the digestInfo hex string
     return digestInfo;
   }
 
   /**
-   * Convert an octet stream (in hex string array form) to a non-negative integer representation
-   * @param encodedMessage A hexadecimal string of octets containing the encoded message.
-   * @return a number containng the integer representation of the encoded message
+   * Convert an octet string to a non-negative integer representation
+   * @param octetString A hexadecimal string of octets containing the encoded message.
+   * @return an integer primitive of the inputted octet string.
    */
-  private os2ip(encodedMessage: string[]): bigint {
+  private os2ip(octetString: string[]): bigint {
     // Create a new array of the corresponding decimal integers from the hex string
-    var emInts: number[] = [];
+    var integerArray: number[] = [];
 
     // Loop through the EM array of hexidecimal octets and parse them as Uint8
-    encodedMessage.forEach((element) => {
-      emInts.push(parseInt(element));
+    octetString.forEach((octet) => {
+      integerArray.push(parseInt(octet));
     });
 
-    // Loop through the new array of integers to find the EM's representing integer such that
-    // x = sum(emInts[i]*256^(i)), 0 <= i < emInts.length
+    // Loop through the new array of integers to find the integer primitive such that
+    // x = sum(integerArray[i]*256^(i)), 0 <= i < integerArray.length
 
-    // Create the output number
+    // Create the output integer primitive
     var x: bigint = 0n;
 
     // Loop through the array of integers
     var i: number;
-    for (i = 0; i < emInts.length; i++) {
+    for (i = 0; i < integerArray.length; i++) {
       // Get the current integer
-      const int = emInts[i];
+      const int = integerArray[i];
 
       // Calculate the value for this integer
       const value: bigint = BigInt(int) * 256n ** BigInt(i);
@@ -214,7 +213,7 @@ export class Rs256 {
       x += value;
     }
 
-    // Return the integer representation of the encoded message
+    // Return the integer primitive of the octet string
     return x;
   }
 
@@ -224,34 +223,15 @@ export class Rs256 {
    * @param message the intger message representative
    * @return a number denoting the integer representative of the signature
    */
-  private rsasp1(key: any, message: bigint): bigint {
+  private rsasp1(key: RSAPrivateKey, message: bigint): bigint {
     // Convert the modulus and exponent hex strings to BigInts
     var n = BigInt(key.modulus);
     var d = BigInt(key.privateExponent);
 
     // Check to see if the message is in the right value range
-    if (message > 1n && message < n - 1n) {
-      // To calculatqe the signature integer representative, we will use the Mod Power algorithm
-      // Create the signature variable
-      var signature = 1n;
-
-      // Let the message equal its modulo
-      var message = message % n;
-
-      // Create a loop to loop through the exponent
-      while (d > 0) {
-        // Check the modulus of the exponent and 2
-        if (d % 2n === 1n) {
-          // Add to the signature
-          signature = (signature * message) % n;
-        }
-
-        // Bitwise decrease the exponent
-        d = d >> 1n;
-
-        // Change the message variable
-        message = (message * message) % n;
-      }
+    if (message < n - 1n) {
+      // Calculate the exponentiated modulus such that s = message^d % n
+      const signature = this.modPow(message, d, n);
 
       // Return the signature
       return signature;
@@ -262,47 +242,123 @@ export class Rs256 {
   }
 
   /**
-   * Convert an integer representative to an octet string (Integer-to-Octet-Stream-Primitive)
+   * Convert an integer representative to an octet string (Integer-to-Octet-String-Primitive)
    * @param x the input's integer representative
-   * @param length the length of the outputted octet string
-   * @return an octet string as a number array of base256 integers (Uint8Array)
+   * @param length the length of the outputted string in octets
+   * @return a hex string
    */
-  private i2osp(x: bigint, length: number): Uint8Array {
-    // Check the inputted integer for its size
-    if (x >= BigInt(Math.pow(256, length))) {
-      // The size is good, continue
-      // Create an array to hold the decimal bytes (integers)
-      var ints: number[] = [];
+  private i2osp(x: bigint, xLen: number): string {
+    // Check the size
+    if (x < 256n ** BigInt(xLen)) {
+      // Create a string to hold the hex values
+      var octets: string = "";
 
       // Create a loop that will continue until the x value is 0
       while (x) {
         // Calculate the individual integer from the modulus of x and 256
         const int: number = Number(x % 256n);
 
-        // Add the integer to the array of integers
-        ints.push(int);
+        // Convert the integer to a hex value
+        const octet = int.toString(16);
+
+        // Add the octet to the octet string
+        octets += octet;
 
         // Re-assign x to be the floor of x/256
         x = x / 256n;
       }
 
-      // Calculate how many remaining values are needed to meet the octet string length
-      const n = length - ints.length;
+      // Get the length of the octet string
+      const length = octets.length / 2;
 
-      // Push n 0s as padding to the integer array
-      for (var i = 0; i < n; i++) {
-        // Push a 0 digit to the array
-        ints.push(0);
+      // Check the length of the string
+      if (length === xLen) {
+        // We can return the hex string as it is the correct length
+        return octets;
+      } else if (length < xLen) {
+        // Add padding 00 values to the string
+        // Calculate the number of values to add
+        const padding = xLen - length;
+        for (var i = 0; i < padding; i++) {
+          // Add a padding 0x00 value
+          octets = `00${octets}`;
+        }
+        return octets;
+      } else {
+        throw new Error("Integer is too large.");
+      }
+    } else {
+      // Throw an error that the integer is too large
+      throw new Error("Integer is too large.");
+    }
+  }
+
+  /**
+   * Calculate the value of base^exponent (mod modulus) for BigInts.
+   * @param base the value to be exponentiated
+   * @param exponent the value of the exponent
+   * @param modulus the modulus
+   * @return a BigInt value of the calculation
+   */
+  private modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
+    // To calculate the value of base^exponent (mod modulus), we will use an algorithm by Bruce Schneier
+    // Create the value variable and start it at 1
+    var value = 1n;
+
+    // Let the base equal its modulo
+    var base = base % modulus;
+
+    // Create a loop to loop through the exponent
+    while (exponent > 0n) {
+      // Check the modulus of the exponent and 2
+      if (exponent % 2n === 1n) {
+        // Add to the signature
+        value = (value * base) % modulus;
       }
 
-      // Reverse the integers array to have the correct order
-      ints = ints.reverse();
+      // Bitwise decrease the exponent
+      exponent = exponent >> 1n;
 
-      // Return the integer array as a Uint8Array
-      return new Uint8Array(ints);
-    } else {
-      // Throw an error since it is too big and return an empty array
-      throw new Error("Signature integer representation is too large.");
+      // Change the message variable
+      base = (base * base) % modulus;
     }
+
+    // Return the signature
+    return value;
+  }
+
+  /**
+   * Convert a hex string into an array of hex octets
+   * @param string the hex string to convert to an array of octets
+   */
+  private stringToOctetArray(string: string) {
+    // Create an octet array
+    var octetsArray: string[] = [];
+
+    // Split the string by characters to create an array
+    const strChars: string[] = string.split("");
+
+    // Loop through the characters in the array, lumping them into pairs to put in the EM output
+    var i = 0;
+    var loop = true;
+    while (loop) {
+      // Get the current and next characters in the array
+      const current = strChars[i];
+      const next = strChars[i + 1];
+
+      // Add the octet into the octets array and append the hex identifier 0x
+      octetsArray.push(`0x${current}${next}`);
+
+      // If this is the second last character, we can stop the loop now as there are no more octets
+      if (i > strChars.length - 4) {
+        loop = false;
+      } else {
+        // Increment the loop to the next octet (two places down)
+        i += 2;
+      }
+    }
+
+    // Return the octet array
+    return octetsArray;
   }
 }

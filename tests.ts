@@ -44,38 +44,37 @@ const base64payload = encode(payInt);
 
 // Convert the signing input to a UTF-8 array
 const signingInput = new TextEncoder().encode(
-  `${base64header}.${base64payload}`
+  `${base64header}.${base64payload}`,
 );
 
 // Start a timer
 const tNow = performance.now();
 
 // Create a signature
-const signature = rs256.sign(key, signingInput);
+const signatureHex = rs256.sign(key, signingInput);
 
 // Calcuate the duration of the signature generation
 const duration = performance.now() - tNow;
+
+// Conver the hex string signature into a Uint8Array
+const signature = new TextEncoder().encode(signatureHex);
 
 // Base64url encode the signature
 const base64sig = encode(signature);
 
 // Create the JWT
 const jwt = `${base64header}.${base64payload}.${base64sig}`;
-
-// Create the request headers
-const reqHeaders = new Headers();
-reqHeaders.append("Content-Type", "application/x-www-form-urlencoded");
-
-// Create an HTTP request
-const req = new Request(json.token_uri, {
-  headers: reqHeaders,
-  method: "POST",
-  body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-});
-
+/*
 try {
-  // Try get the response
-  var res = await fetch(req);
+  // Try get the the response to the Fetch POST
+  var res = await fetch(json.token_uri, {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    method: "POST",
+    body:
+      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  });
 
   if (await res.ok) {
     // Successful authentication
@@ -86,6 +85,7 @@ try {
 } catch (error) {
   throw error;
 }
+*/
 console.log(jwt);
 // Log the time it took to generate the signature
 console.log(`Time taken to generate signature: ${duration}ms`);
