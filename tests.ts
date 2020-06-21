@@ -56,36 +56,45 @@ const signatureHex = rs256.sign(key, signingInput);
 // Calcuate the duration of the signature generation
 const duration = performance.now() - tNow;
 
-// Conver the hex string signature into a Uint8Array
-const signature = new TextEncoder().encode(signatureHex);
-
-// Base64url encode the signature
-const base64sig = encode(signature);
-
-// Create the JWT
-const jwt = `${base64header}.${base64payload}.${base64sig}`;
-/*
-try {
-  // Try get the the response to the Fetch POST
-  var res = await fetch(json.token_uri, {
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    method: "POST",
-    body:
-      `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-  });
-
-  if (await res.ok) {
-    // Successful authentication
-    console.log("Success.");
-  } else {
-    console.log(await res);
-  }
-} catch (error) {
-  throw error;
-}
-*/
-console.log(jwt);
 // Log the time it took to generate the signature
 console.log(`Time taken to generate signature: ${duration}ms`);
+
+// Verify the signature
+if (rs256.verify(key, signingInput, signatureHex)) {
+  // Console log valid
+  console.log("Signature verified as valid.");
+  // Convert the hex string signature into a Uint8Array
+  const signature = new TextEncoder().encode(signatureHex);
+
+  // Base64url encode the signature
+  const base64sig = encode(signature);
+
+  // Create the JWT
+  const jwt = `${base64header}.${base64payload}.${base64sig}`;
+
+  try {
+    // Try get the the response to the Fetch POST
+    var res = await fetch(json.token_uri, {
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      method: "POST",
+      body:
+        `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+    });
+
+    if (await res.ok) {
+      // Successful authentication
+      console.log("Success.");
+    } else {
+      console.log(await res);
+    }
+  } catch (error) {
+    throw error;
+  }
+
+  console.log(jwt);
+} else {
+  // Console log
+  console.log("Signature is invalid.");
+}
