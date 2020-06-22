@@ -88,7 +88,7 @@ export class Rs256 {
     signature: string,
   ): boolean {
     // Decode the RSA private key and retrieve the public exponent and modulus
-    const { publicExponent, modulus } = new RsaKey().decode(key);
+    const { modulus, publicExponent } = new RsaKey().decode(key);
 
     // Get the length of the modulus in octets
     const k = (modulus.length - 2) / 2;
@@ -242,7 +242,7 @@ export class Rs256 {
    * @return an integer primitive of the inputted octet string.
    */
   private os2ip(octetString: string[]): bigint {
-    // Create a new array of the corresponding decimal integers from the hex string
+    // Convert the hexadecimal string into an array of integers
     var integerArray: number[] = [];
 
     // Loop through the EM array of hexidecimal octets and parse them as Uint8
