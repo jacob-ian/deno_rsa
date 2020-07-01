@@ -11,6 +11,7 @@
 /* IMPORTS */
 import { Sha256 } from "https://deno.land/std@v0.57.0/hash/sha256.ts";
 import { RsaKey } from "./RsaKey.ts";
+import * as Utils from "./Utils.ts";
 
 /**
  * A class to generate a RSASSA-PKCS1-V1_5 signature from an input message and a private key.
@@ -83,7 +84,7 @@ export class Rs256 {
     // Check if the modulus and signature length matches
     if (k === sigLenth) {
       // Convert the signature into an array of hex string octets
-      const sigArray = this.stringToOctetArray(signature.slice(2));
+      const sigArray = Utils.stringToOctetArray(signature.slice(2));
 
       // Convert the signature into an integer representative
       const s = this.os2ip(sigArray);
@@ -98,7 +99,7 @@ export class Rs256 {
       const EM = this.emsaEncode(message, k);
 
       // Convert the real encoded message to a string
-      const emActual = this.octetArrayToString(EM);
+      const emActual = Utils.octetArrayToString(EM);
 
       console.log(`emFound: ${emFound}`);
       console.log(`emActual: ${emActual}`);
@@ -161,7 +162,7 @@ export class Rs256 {
         var emStr = emSpaced.replace(/ /g, "").toUpperCase();
 
         // Convert the string into an array of hexadecimal octet strings
-        const EM = this.stringToOctetArray(emStr);
+        const EM = Utils.stringToOctetArray(emStr);
 
         // Return the encoded message
         return EM;
@@ -271,7 +272,7 @@ export class Rs256 {
     // Check to see if the message is in the right value range
     if (message < modulus - 1n) {
       // Calculate the exponentiated modulus such that s = message^d % n
-      const signature = this.modPow(message, privateExponent, modulus);
+      const signature = Utils.modPow(message, privateExponent, modulus);
 
       // Return the signature
       return signature;
@@ -296,7 +297,7 @@ export class Rs256 {
     // Check the size of the signature against the modulus
     if (signature < modulus - 1n) {
       // Calculate the message to be: m = s^e mod n
-      const message = this.modPow(signature, publicExponent, modulus);
+      const message = Utils.modPow(signature, publicExponent, modulus);
 
       // Return the message
       return message;
@@ -356,93 +357,5 @@ export class Rs256 {
       // Throw an error that the integer is too large
       throw new Error("Integer is too large.");
     }
-  }
-
-  /**
-   * Calculate the value of base^exponent (mod modulus) for BigInts.
-   * @param base the value to be exponentiated
-   * @param exponent the value of the exponent
-   * @param modulus the modulus
-   * @return a BigInt value of the calculation
-   */
-  private modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
-    // To calculate the value of base^exponent (mod modulus), we will use an algorithm by Bruce Schneier
-    // Create the value variable and start it at 1
-    var value = 1n;
-
-    // Let the base equal its modulo
-    var base = base % modulus;
-
-    // Create a loop to loop through the exponent
-    while (exponent > 0n) {
-      // Check the modulus of the exponent and 2
-      if (exponent % 2n === 1n) {
-        // Add to the signature
-        value = (value * base) % modulus;
-      }
-
-      // Bitwise decrease the exponent
-      exponent = exponent >> 1n;
-
-      // Change the message variable
-      base = (base * base) % modulus;
-    }
-
-    // Return the signature
-    return value;
-  }
-
-  /**
-   * Convert a hex string into an array of hex octets
-   * @param string the hex string to convert to an array of octets
-   */
-  private stringToOctetArray(string: string) {
-    // Create an octet array
-    var octetsArray: string[] = [];
-
-    // Split the string by characters to create an array
-    const strChars: string[] = string.split("");
-
-    // Loop through the characters in the array, lumping them into pairs to put in the EM output
-    var i = 0;
-    var loop = true;
-    while (loop) {
-      // Get the current and next characters in the array
-      const current = strChars[i];
-      const next = strChars[i + 1];
-
-      // Add the octet into the octets array and append the hex identifier 0x
-      octetsArray.push(`0x${current}${next}`);
-
-      // If this is the second last character, we can stop the loop now as there are no more octets
-      if (i > strChars.length - 4) {
-        loop = false;
-      } else {
-        // Increment the loop to the next octet (two places down)
-        i += 2;
-      }
-    }
-
-    // Return the octet array
-    return octetsArray;
-  }
-
-  /**
-   * Convert an array of hex strings to a string
-   * @param array The array of hex string octets
-   */
-  private octetArrayToString(array: string[]): string {
-    // Create the output string
-    var output: string = "";
-
-    // Loop through each item in the array
-    array.forEach((octet) => {
-      // Add the value to the string without the 0x appended
-      const value = octet.replace(/0x/g, "");
-      output += value;
-    });
-
-    // Return the string
-    return output;
   }
 }

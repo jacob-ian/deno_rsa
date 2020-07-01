@@ -4,6 +4,10 @@
  * @author Jacob Ian Matthews
  * @version 1.0, 17/06/2020
  */
+
+/* IMPORTS */
+import * as Utils from "./Utils.ts";
+
 /* INTERFACES */
 /**
  * A PrivateKeyInfo object
@@ -117,7 +121,7 @@ export class RsaKey {
     );
 
     // Convert the hexadecimal representation of the OID into a uint8 separated by dots (I can't figure out TLV)
-    const oidTlv = this.hexToUintDot(algorithmOid);
+    const oidTlv = Utils.hexToUintDot(algorithmOid);
 
     // Now we can find the RSAPrivateKey inside the rest of the hexadecimal key
     // Get the position of the Private Key's octet string
@@ -388,50 +392,5 @@ export class RsaKey {
 
     // Return the slice
     return slice;
-  }
-
-  /**
-   * Convert a hexadecimal byte array to a single Uint8
-   * @param array The array of hex values to convert to Uin8
-   */
-  private hexToLumpedInt(array: string[]): number {
-    // Get the hex string
-    const hexStr = this.hexToString(array);
-
-    // Return the integer value
-    return parseInt(hexStr);
-  }
-
-  /**
-   * Convert an array of hexadecimal bytes to string
-   * @param array The array of hexadecimals to convert
-   */
-  private hexToString(array: string[]): string {
-    // Create a hex string
-    var hexStr = "0x";
-
-    // Add each value to it
-    array.forEach((hex) => {
-      hexStr += hex;
-    });
-
-    // Return the string
-    return hexStr;
-  }
-
-  private hexToUintDot(array: string[]) {
-    // Create output string
-    var output = "";
-
-    // Loop through the hex array converting each value to an integer
-    array.forEach((octet) => {
-      output += `${parseInt(`0x${octet}`)}.`;
-    });
-
-    // Remove the last dot
-    output = output.slice(0, output.length - 1);
-
-    // Return the string
-    return output;
   }
 }

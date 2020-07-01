@@ -3,3 +3,4 @@ package.json
 package-lock.json
 /.vscode
 keyfile.json
+.DS_Store
