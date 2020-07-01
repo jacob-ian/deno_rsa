@@ -18,14 +18,17 @@ interface PrivateKeyInfo {
  */
 interface RSAPrivateKey {
   version: number;
-  modulus: string;
-  publicExponent: number;
-  privateExponent: string;
-  prime1: string;
-  prime2: string;
-  exponent1: string;
-  exponent2: string;
-  coefficient: string;
+  modulus: {
+    length: number;
+    value: bigint;
+  };
+  publicExponent: bigint;
+  privateExponent: bigint;
+  prime1: bigint;
+  prime2: bigint;
+  exponent1: bigint;
+  exponent2: bigint;
+  coefficient: bigint;
 }
 
 /* CLASSES */
@@ -36,7 +39,7 @@ interface RSAPrivateKey {
 export class RsaKey {
   /* PROPERTIES */
 
-  // The OID for the RSA Public Key algorithm
+  // The OID for the RSA algorithm
   private RSAKeyAlgOid: string = "1.2.840.113549.1.1.1";
 
   /* METHODS */
@@ -80,7 +83,7 @@ export class RsaKey {
     } else {
       // Throw an error since it hasn't been encoded in a supported style
       throw new Error(
-        "Please use an unencrypted PKCS#8 or PKCS#1 RSAwithSHA-256 Private key."
+        "Please use an unencrypted PKCS#8 or PKCS#1 RSAwithSHA256 Private key.",
       );
     }
   }
@@ -110,7 +113,7 @@ export class RsaKey {
     // Get the algorithm OID
     const algorithmOid = hexKey.slice(
       algOidPos + 1 + algOidLen[1],
-      algOidPos + 1 + algOidLen[1] + algOidLen[0]
+      algOidPos + 1 + algOidLen[1] + algOidLen[0],
     );
 
     // Convert the hexadecimal representation of the OID into a uint8 separated by dots (I can't figure out TLV)
@@ -157,44 +160,54 @@ export class RsaKey {
    * @param key The RSA key in hexadecimal byte array form
    */
   private decodeRsaKey(key: string[]): RSAPrivateKey {
-    // A quick note that the hex arrays will not be converted into integers as they will be 1024 or 2048-bit and JavaScript cannot parse integers of that size
-
     // Extract the integer ASN.1 objects hex arrays from the key (after the first sequence)
     const from = key.indexOf("02");
     const hexArray = this.extractValues(key.slice(from), "02");
 
     // The first value is the version
-    const version = this.hexToLumpedInt(hexArray[0]);
+    const version = parseInt(`0x${hexArray[0]}`);
+
+    // Get the length of the modulus
+    const modulusLen = hexArray[1].length;
 
     // The second value is the modulus. Remove the 0x00 padding.
     var modulusArr = hexArray[1].slice(1);
-    const modulus = this.hexToString(modulusArr);
+    const modulus = BigInt(`0x${modulusArr.toString().replace(/,/g, "")}`);
 
     // The third value is the public exponent
-    const publicExponent = this.hexToLumpedInt(hexArray[2]);
+    const publicExponent = BigInt(
+      `0x${hexArray[2].toString().replace(/,/g, "")}`,
+    );
 
     // The fourth value is the private exponent
-    const privateExponent = this.hexToString(hexArray[3]);
+    const privateExponent = BigInt(
+      `0x${hexArray[3].toString().replace(/,/g, "")}`,
+    );
 
     // The fifth value is the first prime number p
-    const prime1 = this.hexToString(hexArray[4]);
+    const prime1 = BigInt(`0x${hexArray[4].toString().replace(/,/g, "")}`);
 
     // The sixth value is the second prime number q
-    const prime2 = this.hexToString(hexArray[5]);
+    const prime2 = BigInt(`0x${hexArray[5].toString().replace(/,/g, "")}`);
 
     // The seventh value is d mod (p-1)
-    const exponent1 = this.hexToString(hexArray[6]);
+    const exponent1 = BigInt(`0x${hexArray[6].toString().replace(/,/g, "")}`);
 
     // The eighth value is d mod (q-1)
-    const exponent2 = this.hexToString(hexArray[7]);
+    const exponent2 = BigInt(`0x${hexArray[7].toString().replace(/,/g, "")}`);
 
     // The final value is the coefficient Qinv mod p
-    const coefficient = this.hexToString(hexArray[8]);
+    const coefficient = BigInt(
+      `0x${hexArray[8].toString().replace(/,/g, "")}`,
+    );
 
     // We can now output the RSAPrivateKey object
     const output: RSAPrivateKey = {
       version: version,
-      modulus: modulus,
+      modulus: {
+        length: modulusLen,
+        value: modulus,
+      },
       publicExponent: publicExponent,
       privateExponent: privateExponent,
       prime1: prime1,
@@ -356,7 +369,7 @@ export class RsaKey {
   private slice(
     array: string[],
     identifierPos: number,
-    lengthArr: number[]
+    lengthArr: number[],
   ): string[] {
     // Get the length of the array to take
     const length = lengthArr[0];

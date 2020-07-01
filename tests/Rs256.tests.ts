@@ -6,7 +6,7 @@
  */
 
 // Import the module
-import { Rs256 } from "./mod.ts";
+import { Rs256 } from "../mod.ts";
 import { readJson } from "https://deno.land/std@v0.57.0/fs/mod.ts";
 import { encode } from "https://deno.land/std@v0.57.0/encoding/base64url.ts";
 

@@ -12,22 +12,6 @@
 import { Sha256 } from "https://deno.land/std@v0.57.0/hash/sha256.ts";
 import { RsaKey } from "./RsaKey.ts";
 
-/* INTERFACES */
-/**
- * An RSA Private Key object
- */
-interface RSAPrivateKey {
-  version: number;
-  modulus: string;
-  publicExponent: number;
-  privateExponent: string;
-  prime1: string;
-  prime2: string;
-  exponent1: string;
-  exponent2: string;
-  coefficient: string;
-}
-
 /**
  * A class to generate a RSASSA-PKCS1-V1_5 signature from an input message and a private key.
  */
@@ -66,7 +50,7 @@ export class Rs256 {
 
     // Create a signature integer representative by applying the RSASP1 signature primitive
     // to the RSA private key and the integer message representative
-    const s = this.rsasp1(modulus, privateExponent, m);
+    const s = this.rsasp1(modulus.value, privateExponent, m);
 
     // Convert the signature integer representative into an octet string (hex string) signature
     const signature = `0x${this.i2osp(s, k)}`;
@@ -105,7 +89,7 @@ export class Rs256 {
       const s = this.os2ip(sigArray);
 
       // Produce an integer message representative by applying RSAVP1 to the signature
-      const m = this.rsavp1(modulus, publicExponent, s);
+      const m = this.rsavp1(modulus.value, publicExponent, s);
 
       // Convert the message to an integer representative to get the encoded message
       const emFound = this.i2osp(m, k);
@@ -280,18 +264,14 @@ export class Rs256 {
    * @return a number denoting the integer representative of the signature
    */
   private rsasp1(
-    modulus: string,
-    privateExponent: string,
+    modulus: bigint,
+    privateExponent: bigint,
     message: bigint,
   ): bigint {
-    // Convert the modulus and exponent hex strings to BigInts
-    var n = BigInt(modulus);
-    var d = BigInt(privateExponent);
-
     // Check to see if the message is in the right value range
-    if (message < n - 1n) {
+    if (message < modulus - 1n) {
       // Calculate the exponentiated modulus such that s = message^d % n
-      const signature = this.modPow(message, d, n);
+      const signature = this.modPow(message, privateExponent, modulus);
 
       // Return the signature
       return signature;
@@ -309,18 +289,14 @@ export class Rs256 {
    * @return an integer representative message
    */
   private rsavp1(
-    modulus: string,
-    publicExponent: number,
+    modulus: bigint,
+    publicExponent: bigint,
     signature: bigint,
   ): bigint {
-    // Convert the modulus and public exponent to a bigint
-    const n = BigInt(modulus);
-    const e = BigInt(publicExponent);
-
     // Check the size of the signature against the modulus
-    if (signature < n - 1n) {
+    if (signature < modulus - 1n) {
       // Calculate the message to be: m = s^e mod n
-      const message = this.modPow(signature, e, n);
+      const message = this.modPow(signature, publicExponent, modulus);
 
       // Return the message
       return message;

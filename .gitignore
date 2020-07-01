@@ -3,4 +3,3 @@ package.json
 package-lock.json
 /.vscode
 keyfile.json
-tests2.ts
