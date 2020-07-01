@@ -35,6 +35,25 @@ interface RSAPrivateKey {
   coefficient: bigint;
 }
 
+/**
+ * An RSA Public Key object
+ */
+interface RSAPublicKey {
+  modulus: {
+    length: number;
+    value: bigint;
+  };
+  publicExponent: bigint;
+}
+
+/**
+ * The RSA Keyset output object (encoded)
+ */
+interface RSAKeyset {
+  privateKey: string;
+  publicKey: string;
+}
+
 /* CLASSES */
 
 /**
@@ -93,11 +112,82 @@ export class RsaKey {
   }
 
   /**
+   * Generate a private and public RSA Key.
+   * @param size The bit-size of the modulus to create.
+   * @return an object containing the privateKey and publicKey as strings.
+   */
+  public generate(size: number): RSAKeyset {
+    // Calculate the two prime factors of the modulus with the desired length
+    const { p, q } = Utils.findPrimes(size / 2);
+
+    // Calculate the modulus
+    const modulus = p * q;
+
+    // Calculate the variable phi for the moduluar inverse calculation
+    const phi = (p - 1n) * (q - 1n);
+
+    // Get the RSA Public exponent
+    const publicExponent = BigInt(65537);
+
+    // Calculate the RSA private exponent
+    const privateExponent = Utils.modInv(publicExponent, phi);
+
+    // Calculate the first exponent
+    const exponent1 = privateExponent % (p - 1n);
+
+    // Calculate the second exponent
+    const exponent2 = privateExponent % (q - 1n);
+
+    // Calculate the coefficient
+    const coefficient = q ** (-1n) % p;
+
+    // Create the unencoded private key
+    const privateKey: RSAPrivateKey = {
+      version: 0,
+      modulus: {
+        length: -1, // To be changed in encoding
+        value: modulus,
+      },
+      publicExponent: publicExponent,
+      privateExponent: privateExponent,
+      prime1: p,
+      prime2: q,
+      exponent1: exponent1,
+      exponent2: exponent2,
+      coefficient: coefficient,
+    };
+
+    // Create the unencoded public key
+    const publicKey: RSAPublicKey = {
+      modulus: {
+        length: -1,
+        value: modulus,
+      },
+      publicExponent: publicExponent,
+    };
+
+    // Create the output object
+    const output: RSAKeyset = {
+      privateKey: this.encodePrivate(privateKey),
+      publicKey: this.encodePublic(publicKey),
+    };
+
+    // Return the output
+    return output;
+  }
+
+  /**
+   *
+   * PRIVATE METHODS
+   *
+  */
+
+  /**
    * Process a PKCS8 RSA Key and return the decoded ASN1.0 object
    * @param key The PKCS8 RSA Key (base64 encoded)
    * @return a decoded ASN.1 object
    */
-  public decodePkcs8(key: string): PrivateKeyInfo {
+  private decodePkcs8(key: string): PrivateKeyInfo {
     // Decode the base64 string into an array of hexadecimal bytes
     var hexKey = this.base64ToHex(key);
 
@@ -145,19 +235,13 @@ export class RsaKey {
    * @param key The PKCS1 RSA Key (base64 encoded)
    * @return a decoded ASN.1 object
    */
-  public decodePkcs1(key: string): RSAPrivateKey {
+  private decodePkcs1(key: string): RSAPrivateKey {
     // Decode the base64 key to hex
     const keyHex = this.base64ToHex(key);
 
     // Decode the RSA Private Key
     return this.decodeRsaKey(keyHex);
   }
-
-  /**
-   *
-   * PRIVATE METHODS
-   *
-   */
 
   /**
    * Decode the DER encoded RSA Key and return a RSAPrivateKey

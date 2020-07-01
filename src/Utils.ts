@@ -1,5 +1,5 @@
 /**
- * This file contains additional functions to assist RS256 and RsaKey.ts.
+ * This file contains additional functions to assist Rs256.ts and RsaKey.ts.
  * 
  * @author Jacob Ian Matthews
  * @version 1.0 01/07/2020
@@ -140,4 +140,67 @@ export function octetArrayToString(array: string[]): string {
 
   // Return the string
   return output;
+}
+
+/**
+ * An object to store the found prime numbers
+ */
+interface Primes {
+  p: bigint;
+  q: bigint;
+}
+
+/**
+ * Find two prime numbers with the desired size
+ * @param size the bit size (length) of the two prime numbers
+ * @return an object with both primes as bigints
+ */
+export function findPrimes(size: number): Primes {
+  const primes: Primes = {
+    p: 1n,
+    q: 1n,
+  };
+  return primes;
+}
+
+export function modInv(): bigint {
+  return 0n;
+}
+
+/**
+ * Find a random number with a given bit size
+ * @param size the bit size
+ */
+export function randomInt(size: number): bigint {
+  // Get the maximum number
+  const max = 2n ** BigInt(size);
+
+  // Get the minimum number
+  const min = 2n ** BigInt(size - 1);
+
+  // Generate a random number
+  const randomNum = Math.random();
+
+  // Convert to an integer by multiplying by its number of decimal places to the power of 10
+  const scaling = randomNum.toString().length - 2;
+  const scaleFactor = 10 ** scaling;
+  const randomScaled = BigInt(randomNum * scaleFactor);
+
+  // Find the random number within the range provided from the size
+  const randomRanged = randomScaled * (max - min) + min;
+
+  // Remove the scaling factor and find the floor of the BigInt
+  const random = randomRanged / (BigInt(scaleFactor));
+  console.log(random);
+  console.log(max);
+  console.log(min);
+
+  // Check if it is within the range
+  if ((random < max) && (random > min)) {
+    console.log("in range");
+  } else {
+    console.log("out of range");
+  }
+
+  return 0n;
 }
