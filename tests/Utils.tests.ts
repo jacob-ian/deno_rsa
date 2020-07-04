@@ -7,7 +7,15 @@
 // Import the utils file
 import * as Utils from "../src/Utils.ts";
 
-// Test the random number generator
-const size = 1024;
-const randomInt = Utils.randomInt(size);
-console.log(randomInt);
+// Start a clock
+const tStart = performance.now();
+
+console.log("finding primes...");
+// Find the two prime numbers
+const primes = Utils.findPrimes(1024);
+
+// Find the duration
+const tEnd = performance.now();
+
+console.log(primes);
+console.log(`Time taken: ${tEnd - tStart}ms`);

@@ -5,6 +5,12 @@
  * @version 1.0 01/07/2020
  */
 
+/* IMPORTS */
+import {
+  randomBigIntByBits,
+  randomBigIntByRange,
+} from "https://raw.githubusercontent.com/jacob-ian/deno_random_bigint/master/src/randomBigInt.ts"; // TODO change this to the deno.land hosting when possible
+
 /**
    * Convert a hexadecimal byte array to a single Uint8
    * @param array The array of hex values to convert to Uin8
@@ -151,56 +157,98 @@ interface Primes {
 }
 
 /**
- * Find two prime numbers with the desired size
+ * Find two prime numbers with the desired bit size.
  * @param size the bit size (length) of the two prime numbers
  * @return an object with both primes as bigints
  */
 export function findPrimes(size: number): Primes {
-  const primes: Primes = {
-    p: 1n,
-    q: 1n,
-  };
-  return primes;
-}
+  // Create an empty array for the prime numbers
+  const primeArr: bigint[] = [];
 
-export function modInv(): bigint {
-  return 0n;
+  // Find a random integer with the desired bit size
+  var random = randomBigIntByBits(size);
+
+  // Start a while loop to complete primality tests
+  var loop = true;
+  while (loop) {
+    // Check how many random primes have been found
+    if (primeArr.length < 2) {
+      // Test the number for primality
+      if (isPrime(random)) {
+        // Add it to the array of primes
+        primeArr.push();
+      } else {
+        // Add to the random integer
+        random += 1n;
+      }
+    } else {
+      // We have found two random primes, therefore we can stop
+      loop = false;
+    }
+  }
+
+  // Get the two prime numbers
+  const p = primeArr[0];
+  const q = primeArr[1];
+
+  // Make sure that the two primes aren't the same
+  if (p !== q) {
+    // Create an object to output the primes
+    const primes: Primes = {
+      p: primeArr[0],
+      q: primeArr[1],
+    };
+    return primes;
+  } else {
+    // Restart the function
+    return findPrimes(size);
+  }
 }
 
 /**
- * Find a random number with a given bit size
- * @param size the bit size
+ * A test to determine if an integer is a prime number.
+ * @param integer the integer (bigint) to test
  */
-export function randomInt(size: number): bigint {
-  // Get the maximum number
-  const max = 2n ** BigInt(size);
-
-  // Get the minimum number
-  const min = 2n ** BigInt(size - 1);
-
-  // Generate a random number
-  const randomNum = Math.random();
-
-  // Convert to an integer by multiplying by its number of decimal places to the power of 10
-  const scaling = randomNum.toString().length - 2;
-  const scaleFactor = 10 ** scaling;
-  const randomScaled = BigInt(randomNum * scaleFactor);
-
-  // Find the random number within the range provided from the size
-  const randomRanged = randomScaled * (max - min) + min;
-
-  // Remove the scaling factor and find the floor of the BigInt
-  const random = randomRanged / (BigInt(scaleFactor));
-  console.log(random);
-  console.log(max);
-  console.log(min);
-
-  // Check if it is within the range
-  if ((random < max) && (random > min)) {
-    console.log("in range");
+export function isPrime(integer: bigint) {
+  // Ensure the integer isn't divisible by 2
+  if (integer % 2n !== 0n) {
+    // We therefore have an odd integer
+    // Loop through the Fermat primality test
+    var stop = false;
+    var i = 3;
+    while (!stop) {
+      // Check if we are still below the integer
+      if (i < integer) {
+        // Check the result
+        if (integer % BigInt(i) === 0n) {
+          // Not a prime number, stop the loop and return false
+          stop = true;
+          return false;
+        } else {
+          // Continue the loop
+          i++;
+        }
+      } else {
+        // This is a prime number
+        stop = true;
+        return true;
+      }
+    }
   } else {
-    console.log("out of range");
+    // This isn't a prime number, it's even
+    return false;
   }
+}
 
+/**
+ * A Miller-Rabin Primality test
+ * @param integer An odd integer >= 3 to be tested for primality
+ * @param security The number of times to repeat the test: >=1
+ * @return true if probable prime
+ */
+export function millerRabin(integer: bigint, security: number): boolean {
+}
+
+export function modInv(): bigint {
   return 0n;
 }
