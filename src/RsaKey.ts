@@ -1,5 +1,5 @@
 /**
- * This file contains the classes and methods required to decode an RSA Key encoded with DER in ASN.1.
+ * Generate or decode an RSA Key pair.
  *
  * @author Jacob Ian Matthews
  * @version 1.0, 17/06/2020
@@ -7,6 +7,7 @@
 
 /* IMPORTS */
 import * as Utils from "./Utils.ts";
+import { randomPrime } from "https://deno.land/x/random_primes/mod.ts";
 
 /* INTERFACES */
 /**
@@ -22,10 +23,7 @@ interface PrivateKeyInfo {
  */
 interface RSAPrivateKey {
   version: number;
-  modulus: {
-    length: number;
-    value: bigint;
-  };
+  modulus: bigint;
   publicExponent: bigint;
   privateExponent: bigint;
   prime1: bigint;
@@ -39,10 +37,7 @@ interface RSAPrivateKey {
  * An RSA Public Key object
  */
 interface RSAPublicKey {
-  modulus: {
-    length: number;
-    value: bigint;
-  };
+  modulus: bigint;
   publicExponent: bigint;
 }
 
@@ -57,13 +52,10 @@ interface RSAKeyset {
 /* CLASSES */
 
 /**
- * An RSA Key decoding class
+ * An RSA Key generation and decoding class
  */
 export class RsaKey {
   /* PROPERTIES */
-
-  // The OID for the RSA algorithm
-  private RSAKeyAlgOid: string = "1.2.840.113549.1.1.1";
 
   /* METHODS */
   constructor() {}
@@ -75,11 +67,11 @@ export class RsaKey {
    */
 
   /**
-   * Decode an RSA Private Key
-   * @param key The base64 DER ASN.1 encoded RSA Private Key
+   * Decode an RSA Private Key into a usable object.
+   * @param key The RSA Private key as a string
    * @return an object containing the decoded ASN.1 object
    */
-  public decode(key: string): RSAPrivateKey {
+  public decodePrivateKey(key: string): RSAPrivateKey {
     // Check for the version of the RSA key by examining the preface
     // Split the key into groups based around the hyphens
     var keySplit = key.split("-----");
@@ -87,7 +79,7 @@ export class RsaKey {
     // Remove the first and last parts of the keySplit array
     keySplit = [keySplit[1], keySplit[2], keySplit[3]];
 
-    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8 (enc or not-enc)),
+    // Now the first element of the array is now the identifier of the key's version (PKCS1 or PKCS8),
     // the second element is the base64 encoded key and the third part is the ending statement.
     // Get the base64 encoded key
     const ident: string = keySplit[0];
@@ -98,11 +90,11 @@ export class RsaKey {
       // The key is encoded in PKCS#8, therefore it is the RSA Private key wrapped in a
       // PrivateKeyInfo ASN.1 object
       // Decode using PKCS#8 and return the decoded RSA Private Key
-      return this.decodePkcs8(base64).PrivateKey;
+      return this.decodePrivatePkcs8(base64).PrivateKey;
     } else if (ident.includes("BEGIN RSA PRIVATE KEY")) {
       // The key is encoded with PKCS#1, meaning the key is not wrapped in an 'info' object
       // Decode the PKCS#1 key
-      return this.decodePkcs1(base64);
+      return this.decodePrivatePkcs1(base64);
     } else {
       // Throw an error since it hasn't been encoded in a supported style
       throw new Error(
@@ -112,13 +104,37 @@ export class RsaKey {
   }
 
   /**
-   * Generate a private and public RSA Key.
-   * @param size The bit-size of the modulus to create.
-   * @return an object containing the privateKey and publicKey as strings.
+   * Decode an RSA Public key into a usable object.
+   * @param key The RSA Public Key as a string
+   * @return an object containing the decoded ASN.1 object.
    */
-  public generate(size: number): RSAKeyset {
-    // Calculate the two prime factors of the modulus with the desired length
-    const { p, q } = Utils.findPrimes(size / 2);
+  public decodePublicKey(key: string): RSAPublicKey {
+  }
+
+  /**
+   * Generate a private and public RSA Key set.
+   * @param length The bit-length of the modulus to create.
+   * @return an object containing the private and public RSA keys as strings.
+   */
+  public generateKeys(length: number): RSAKeyset {
+    // Find the bit-length of the prime numbers
+    const primeLen = length / 2;
+
+    // Generate two random prime numbers
+    var p = 0n;
+    var q = 0n;
+    var gen = true;
+    while (gen) {
+      // Generate the two prime numbers
+      p = randomPrime(primeLen, 6);
+      q = randomPrime(primeLen, 6);
+
+      // Make sure they aren't equal
+      if (p !== q) {
+        // Stop the loop
+        gen = false;
+      }
+    }
 
     // Calculate the modulus
     const modulus = p * q;
@@ -129,7 +145,7 @@ export class RsaKey {
     // Get the RSA Public exponent
     const publicExponent = BigInt(65537);
 
-    // Calculate the RSA private exponent
+    // Calculate the RSA private exponent to be d = e^-1 mod phi
     const privateExponent = Utils.modInv(publicExponent, phi);
 
     // Calculate the first exponent
@@ -144,10 +160,7 @@ export class RsaKey {
     // Create the unencoded private key
     const privateKey: RSAPrivateKey = {
       version: 0,
-      modulus: {
-        length: -1, // To be changed in encoding
-        value: modulus,
-      },
+      modulus: modulus,
       publicExponent: publicExponent,
       privateExponent: privateExponent,
       prime1: p,
@@ -159,17 +172,14 @@ export class RsaKey {
 
     // Create the unencoded public key
     const publicKey: RSAPublicKey = {
-      modulus: {
-        length: -1,
-        value: modulus,
-      },
+      modulus: modulus,
       publicExponent: publicExponent,
     };
 
     // Create the output object
     const output: RSAKeyset = {
-      privateKey: this.encodePrivate(privateKey),
-      publicKey: this.encodePublic(publicKey),
+      privateKey: this.encodePrivateKey(privateKey),
+      publicKey: this.encodePublicKey(publicKey),
     };
 
     // Return the output
@@ -187,7 +197,7 @@ export class RsaKey {
    * @param key The PKCS8 RSA Key (base64 encoded)
    * @return a decoded ASN.1 object
    */
-  private decodePkcs8(key: string): PrivateKeyInfo {
+  private decodePrivatePkcs8(key: string): PrivateKeyInfo {
     // Decode the base64 string into an array of hexadecimal bytes
     var hexKey = this.base64ToHex(key);
 
@@ -235,7 +245,7 @@ export class RsaKey {
    * @param key The PKCS1 RSA Key (base64 encoded)
    * @return a decoded ASN.1 object
    */
-  private decodePkcs1(key: string): RSAPrivateKey {
+  private decodePrivatePkcs1(key: string): RSAPrivateKey {
     // Decode the base64 key to hex
     const keyHex = this.base64ToHex(key);
 
@@ -254,9 +264,6 @@ export class RsaKey {
 
     // The first value is the version
     const version = parseInt(`0x${hexArray[0]}`);
-
-    // Get the length of the modulus
-    const modulusLen = hexArray[1].length;
 
     // The second value is the modulus. Remove the 0x00 padding.
     var modulusArr = hexArray[1].slice(1);
@@ -292,10 +299,7 @@ export class RsaKey {
     // We can now output the RSAPrivateKey object
     const output: RSAPrivateKey = {
       version: version,
-      modulus: {
-        length: modulusLen,
-        value: modulus,
-      },
+      modulus: modulus,
       publicExponent: publicExponent,
       privateExponent: privateExponent,
       prime1: prime1,
@@ -476,5 +480,11 @@ export class RsaKey {
 
     // Return the slice
     return slice;
+  }
+
+  private encodePrivateKey(key: RSAPrivateKey): string {
+  }
+
+  private encodePublicKey(key: RSAPublicKey): string {
   }
 }

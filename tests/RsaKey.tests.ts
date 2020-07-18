@@ -8,7 +8,7 @@
 // Import the class
 import { RsaKey } from "../mod.ts";
 
-// Get a randomly generated RSA Key
+// Get a randomly generated RSA Private Key
 const key = `-----BEGIN RSA PRIVATE KEY-----
 MIIEoQIBAAKCAQBGO7lG+cxH3vnezGcboqjfF7RAYF293g7Hka/u4bVRxEnbrVS9
 YfWCqGq/ta2VtqAi2vZTUJttMDkZg8+gx3+lKajlSLC+6ZlhI2IJrhij59sc99B/
@@ -38,7 +38,7 @@ IDjP3DH/Z76m52A3nY192r9QKNIbH04uvMGZ7b8vERUyALNduQ==
 -----END RSA PRIVATE KEY-----`;
 
 // Decode the key
-const decoded = new RsaKey().decode(key);
+const decoded = new RsaKey().decodePrivateKey(key);
 
 // Console log the decoded key
 console.log(decoded);
